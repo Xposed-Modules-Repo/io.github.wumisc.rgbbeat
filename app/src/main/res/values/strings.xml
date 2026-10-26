@@ -39,6 +39,7 @@
     <string name="about_desc">RGBBeat 是一款基于 LSPosed 的乘车晕车缓解与音乐律动增强模块。它利用系统能力自动判断是否处于乘车环境——打开打车/导航应用（高德、百度、腾讯地图、滴滴等）或检测到车辆运动时，自动开启屏幕边缘晕车缓解光效，并通过 Toast 提示。听音乐时同样能叠加光效，帮助减轻看手机时的晕车不适。</string>
     <string name="about_author">作者：@酷安锦无名</string>
     <string name="about_motto">我希望我们能够改变一下这个世界，哪怕只有一点点，诸君共勉</string>
+    <string name="about_thanks">致敬 LSPosed / Xposed 及整个开源社区</string>
     <string name="donate_title">支持捐赠</string>
     <string name="donate_hint">觉得好用，请作者喝杯奶茶</string>
     <string name="donate_footer">微信扫一扫 · 感谢你的支持</string>

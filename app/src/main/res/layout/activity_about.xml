@@ -96,6 +96,16 @@
                 android:textColor="@color/primary"
                 android:textSize="15sp"
                 android:textStyle="italic" />
+
+            <!-- 致敬开源 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:text="@string/about_thanks"
+                android:textColor="@color/text_hint"
+                android:textSize="12sp" />
         </LinearLayout>
 
         <!-- ===== 捐赠卡片 ===== -->
