@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RGBBeat</string>
+
+    <!-- 主界面 -->
+    <string name="service_status_stopped">光效服务未运行</string>
+    <string name="service_status_running">光效服务运行中</string>
+    <string name="btn_settings">详细设置</string>
+    <string name="btn_recommend">系统推荐 Hook（打车/导航）</string>
+    <string name="btn_grant_overlay">授予悬浮窗权限</string>
+    <string name="btn_grant_notification">允许通知</string>
+    <string name="btn_view_log">查看调试日志</string>
+    <string name="btn_about">关于</string>
+
+    <!-- 现代化主界面文案 -->
+    <string name="subtitle">晕车缓解 · 音乐律动 · 边缘光效</string>
+    <string name="label_service_status">服务状态</string>
+    <string name="info_idle">未运行 · 开启上方开关启动光效服务</string>
+    <string name="footer">RGBBeat v1.8 · LSPosed 模块 · 开源免费\n自动识别打车/导航乘车环境，开启晕车缓解光效</string>
+
+    <!-- 晕车场景卡片 -->
+    <string name="label_carsick">晕车场景</string>
+    <string name="sw_carsick">自动检测乘车环境</string>
+    <string name="sw_motion_trigger">车辆运动触发</string>
+    <string name="sw_carsick_toast">乘车 Toast 提示</string>
+    <string name="carsick_hint">内置识别：高德/百度/腾讯地图、滴滴等打车导航应用，打开即自动判定；也可由车辆运动传感器判定。</string>
+
+    <!-- 工作模式卡片 -->
+    <string name="label_data_mode">工作模式</string>
+    <string name="mode_fusion">融合（音乐 + 晕车缓解）</string>
+    <string name="mode_music">音乐律动（音频频谱）</string>
+    <string name="mode_motion">晕车缓解（车辆运动）</string>
+    <string name="data_mode_hint">融合模式：听音乐的同时也能叠加晕车缓解光效，效果一致。</string>
+
+    <!-- 关于界面 -->
+    <string name="btn_back">‹ 返回</string>
+    <string name="about_title">关于</string>
+    <string name="version_placeholder">版本 v1.8</string>
+    <string name="about_desc">RGBBeat 是一款基于 LSPosed 的乘车晕车缓解与音乐律动增强模块。它利用系统能力自动判断是否处于乘车环境——打开打车/导航应用（高德、百度、腾讯地图、滴滴等）或检测到车辆运动时，自动开启屏幕边缘晕车缓解光效，并通过 Toast 提示。听音乐时同样能叠加光效，帮助减轻看手机时的晕车不适。</string>
+    <string name="about_author">作者：@酷安锦无名</string>
+    <string name="about_motto">我希望我们能够改变一下这个世界，哪怕只有一点点，诸君共勉</string>
+    <string name="donate_title">支持捐赠</string>
+    <string name="donate_hint">觉得好用，请作者喝杯奶茶</string>
+    <string name="donate_footer">微信扫一扫 · 感谢你的支持</string>
+    <string name="license">GPL-3.0 开源 · 纯本地运行，无联网无广告</string>
+
+    <!-- 应用选择界面（小窗） -->
+    <string name="app_pick_hint">内置打车/导航应用已自动识别（标"推荐应用"，无需勾选）。勾选其他应用后，当前台打开时也会自动开启光效。需先在系统无障碍设置开启「RGBBeat 光效触发」服务。</string>
+    <string name="app_pick_save">保存选择</string>
+
+    <!-- 音乐自动触发 -->
+    <string name="sw_music_auto">音乐自动触发</string>
+    <string name="sw_music_auto_summary">检测到音乐播放时自动开启光效，音乐停止后自动关闭</string>
+    <string name="light_color_title">光效颜色（DIY）</string>
+
+    <!-- 设置项 -->
+    <string name="pref_section_general">常规</string>
+    <string name="pref_data_mode_title">数据源模式</string>
+    <string name="pref_data_mode_summary">融合=音乐+晕车缓解并行；音乐律动用音频频谱；晕车缓解用车辆运动传感器</string>
+    <string name="pref_section_audio">音频与节拍</string>
+    <string name="pref_section_light">光效</string>
+    <string name="pref_section_vibration">震动</string>
+
+    <string name="pref_audio_source_title">音频来源</string>
+    <string name="pref_audio_source_summary">优先系统播放器频谱，无播放时自动退回麦克风拾音</string>
+    <string name="pref_audio_source_auto">自动（频谱优先，麦克风回退）</string>
+    <string name="pref_audio_source_visualizer">仅播放器频谱</string>
+    <string name="pref_audio_source_mic">仅麦克风拾音</string>
+
+    <string name="pref_sensitivity_title">节拍灵敏度</string>
+    <string name="pref_sensitivity_summary">越高越容易触发节拍（建议 1.0~1.6）</string>
+
+    <string name="pref_cooldown_title">节拍冷却时间(ms)</string>
+    <string name="pref_cooldown_summary">两次节拍之间的最短间隔，防止误触发</string>
+
+    <string name="pref_speed_title">光效速度</string>
+    <string name="pref_speed_summary">色轮转速与脉动速度</string>
+
+    <string name="pref_mode_title">光效模式</string>
+    <string name="pref_mode_summary">边框 / 键盘环绕 / 自动切换</string>
+    <string name="pref_mode_edge">屏幕边缘光效</string>
+    <string name="pref_mode_keyboard">仅键盘环绕</string>
+    <string name="pref_mode_auto">自动（弹键盘时环绕键盘）</string>
+
+    <string name="pref_brightness_title">光效亮度</string>
+    <string name="pref_brightness_summary">整体亮度 0~255</string>
+
+    <string name="pref_vibration_title">马达震动</string>
+    <string name="pref_vibration_summary">节拍命中时驱动手机马达震动</string>
+    <string name="pref_vibration_on">跟随节拍震动</string>
+    <string name="pref_vibration_off">关闭震动</string>
+
+    <string name="pref_vibration_intensity_title">震动强度</string>
+    <string name="pref_vibration_intensity_summary">0~255，越大震感越强</string>
+
+    <string name="toast_started">RGB 光效服务已启动</string>
+    <string name="toast_stopped">RGB 光效服务已停止</string>
+    <string name="toast_permission_denied">请先授予悬浮窗权限</string>
+
+    <!-- 指定应用自动开启 -->
+    <string name="pref_trigger_title">手动选择应用触发</string>
+    <string name="pref_trigger_summary">打开勾选的应用时自动开启光效（需开启无障碍服务）</string>
+    <string name="pref_trigger_pick_title">选择触发应用</string>
+    <string name="pref_trigger_pick_summary">勾选后其在前台时自动开启光效（打车/导航等）</string>
+    <string name="trigger_service_label">RGBBeat 光效触发</string>
+    <string name="trigger_service_desc">监听前台应用：打开打车/导航类应用时自动进入晕车缓解并提示。</string>
+</resources>

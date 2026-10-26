@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 圆角深色底 -->
+    <path
+        android:pathData="M20,20 L88,20 Q94,20 94,26 L94,82 Q94,88 88,88 L20,88 Q14,88 14,82 L14,26 Q14,20 20,20 Z"
+        android:fillColor="#0B0B18" />
+    <!-- RGB 三色圆环（模拟律动光效） -->
+    <path
+        android:pathData="M54,54 m-22,0 a22,22 0 1,1 44,0 a22,22 0 1,1 -44,0"
+        android:strokeColor="#FF3DF0"
+        android:strokeWidth="6"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M54,54 m-14,0 a14,14 0 1,1 28,0 a14,14 0 1,1 -28,0"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="6"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M54,54 m-6,0 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0"
+        android:strokeColor="#FFD54F"
+        android:strokeWidth="6"
+        android:fillColor="#00000000" />
+</vector>

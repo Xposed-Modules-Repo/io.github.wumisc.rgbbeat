@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LSPosed 推荐 Hook 名单（作用域）：
+         · com.android.systemui —— 核心自启链路（XposedInit 只在 systemui 进程拉起光效服务）
+         · 打车/导航应用 —— 系统推荐 Hook 对象，LSPosed 中显示"推荐应用"并默认勾选；
+           模块在这些进程内不注入逻辑（XposedInit 按包名跳过），晕车判定由系统能力完成 -->
+    <string-array name="xposed_scope">
+        <item>com.android.systemui</item>
+        <item>com.autonavi.minimap</item>
+        <item>com.baidu.BaiduMap</item>
+        <item>com.tencent.map</item>
+        <item>com.sdu.didi.psnger</item>
+        <item>com.didi.fleet.carclient</item>
+        <item>com.amap.android.rtbt</item>
+        <item>com.caocao.motop</item>
+        <item>com.t3go.t3go</item>
+        <item>com.huaxiaozhu</item>
+        <item>com.meituan.car</item>
+        <item>com.zhugecars.com.cn</item>
+        <item>com.shenzhou.chefu</item>
+    </string-array>
+
+    <string-array name="mode_labels">
+        <item>屏幕边缘光效</item>
+        <item>跑马灯流动</item>
+        <item>仅键盘环绕</item>
+        <item>自动切换</item>
+    </string-array>
+    <string-array name="mode_values">
+        <item>edge</item>
+        <item>marquee</item>
+        <item>keyboard</item>
+        <item>auto</item>
+    </string-array>
+
+    <string-array name="audio_source_labels">
+        <item>自动（频谱优先，麦克风回退）</item>
+        <item>仅播放器频谱</item>
+        <item>仅麦克风拾音</item>
+    </string-array>
+    <string-array name="audio_source_values">
+        <item>auto</item>
+        <item>visualizer</item>
+        <item>mic</item>
+    </string-array>
+
+    <!-- 数据源模式：融合 / 音乐律动 / 晕车缓解 -->
+    <string-array name="data_mode_labels">
+        <item>融合（音乐 + 晕车缓解）</item>
+        <item>音乐律动（音频频谱）</item>
+        <item>晕车缓解（车辆运动）</item>
+    </string-array>
+    <string-array name="data_mode_values">
+        <item>fusion</item>
+        <item>music</item>
+        <item>motion</item>
+    </string-array>
+</resources>

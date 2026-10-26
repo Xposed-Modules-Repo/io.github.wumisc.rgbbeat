@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="@string/pref_section_general">
+        <SwitchPreference
+            android:key="carsick_enabled"
+            android:title="晕车场景自动检测"
+            android:summary="识别打车/导航应用或车辆运动，自动进入晕车缓解并提示"
+            android:defaultValue="true" />
+        <SwitchPreference
+            android:key="motion_trigger_enabled"
+            android:title="车辆运动触发"
+            android:summary="加速度计检测到车辆移动时判定乘车（需开启晕车场景检测）"
+            android:defaultValue="true" />
+        <SwitchPreference
+            android:key="carsick_toast"
+            android:title="进入乘车环境 Toast 提示"
+            android:summary="识别到乘车时弹提示「已进入乘车环境 · 晕车缓解已开启」"
+            android:defaultValue="true" />
+        <ListPreference
+            android:key="data_mode"
+            android:title="@string/pref_data_mode_title"
+            android:summary="@string/pref_data_mode_summary"
+            android:defaultValue="fusion"
+            android:entries="@array/data_mode_labels"
+            android:entryValues="@array/data_mode_values" />
+        <SwitchPreference
+            android:key="app_trigger_enabled"
+            android:title="手动选择应用触发"
+            android:summary="除内置打车/导航应用外，额外勾选的应用也可触发（需开启无障碍服务）"
+            android:defaultValue="false" />
+        <Preference
+            android:key="pick_apps"
+            android:title="@string/pref_trigger_pick_title"
+            android:summary="@string/pref_trigger_pick_summary" />
+        <Preference
+            android:key="pick_music_blacklist"
+            android:title="音乐识别黑名单"
+            android:summary="黑名单内的应用（视频/直播等）在前台时不触发音乐光效，避免背景音乐误触发" />
+        <SwitchPreference
+            android:key="auto_start"
+            android:title="开机自启"
+            android:summary="开机后自动运行光效服务（需授予悬浮窗权限）"
+            android:defaultValue="true" />
+        <ListPreference
+            android:key="mode"
+            android:title="@string/pref_mode_title"
+            android:summary="@string/pref_mode_summary"
+            android:defaultValue="auto"
+            android:entries="@array/mode_labels"
+            android:entryValues="@array/mode_values" />
+        <SeekBarPreference
+            android:key="brightness"
+            android:title="@string/pref_brightness_title"
+            android:summary="@string/pref_brightness_summary"
+            android:defaultValue="180"
+            android:min="20"
+            android:max="255" />
+        <SeekBarPreference
+            android:key="speed"
+            android:title="@string/pref_speed_title"
+            android:summary="@string/pref_speed_summary"
+            android:defaultValue="40"
+            android:min="5"
+            android:max="120" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_section_audio">
+        <ListPreference
+            android:key="audio_source"
+            android:title="@string/pref_audio_source_title"
+            android:summary="@string/pref_audio_source_summary"
+            android:defaultValue="auto"
+            android:entries="@array/audio_source_labels"
+            android:entryValues="@array/audio_source_values" />
+        <SeekBarPreference
+            android:key="sensitivity"
+            android:title="@string/pref_sensitivity_title"
+            android:summary="@string/pref_sensitivity_summary"
+            android:defaultValue="13"
+            android:min="5"
+            android:max="30" />
+        <SeekBarPreference
+            android:key="cooldown"
+            android:title="@string/pref_cooldown_title"
+            android:summary="@string/pref_cooldown_summary"
+            android:defaultValue="180"
+            android:min="60"
+            android:max="500" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_section_vibration">
+        <SwitchPreference
+            android:key="vibration_enabled"
+            android:title="@string/pref_vibration_title"
+            android:summary="@string/pref_vibration_summary"
+            android:defaultValue="true" />
+        <SeekBarPreference
+            android:key="vibration_intensity"
+            android:title="@string/pref_vibration_intensity_title"
+            android:summary="@string/pref_vibration_intensity_summary"
+            android:defaultValue="120"
+            android:min="10"
+            android:max="255" />
+    </PreferenceCategory>
+</PreferenceScreen>

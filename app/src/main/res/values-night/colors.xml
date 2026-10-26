@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 基础 -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="primary">#FF9D82FF</color>
+    <color name="primary_dark">#FF6D4FF0</color>
+    <color name="accent">#FF38BDF8</color>
+    <color name="status_running">#FF34D399</color>
+    <color name="status_stopped">#FF7E8590</color>
+
+    <!-- 深色背景 -->
+    <color name="bg_top">#FF12131A</color>
+    <color name="bg_bottom">#FF12131A</color>
+    <color name="bg_glow_purple">#337C5CF6</color>
+
+    <!-- 卡片与表面（深色） -->
+    <color name="surface_card">#FF1E2029</color>
+    <color name="surface_card_alt">#FF252833</color>
+    <color name="card_bg">#FF1E2029</color>
+    <color name="card_stroke">#FF2E3140</color>
+    <color name="scrim">#99000000</color>
+
+    <!-- 文本层级（深色） -->
+    <color name="text_primary">#FFF2F2F6</color>
+    <color name="text_secondary">#FFA4A6B2</color>
+    <color name="text_hint">#FF70727E</color>
+
+    <!-- 品牌霓虹三色（深色下更亮） -->
+    <color name="neon_red">#FFF43F5E</color>
+    <color name="neon_green">#FF34D399</color>
+    <color name="neon_blue">#FF38BDF8</color>
+    <color name="neon_purple">#FF8B5CF6</color>
+    <color name="neon_cyan">#FF22D3EE</color>
+    <color name="neon_pink">#FFF472B6</color>
+
+    <!-- 启动按钮渐变（保留） -->
+    <color name="btn_start_from">#FF7C3AED</color>
+    <color name="btn_start_to">#FF06B6D4</color>
+</resources>
