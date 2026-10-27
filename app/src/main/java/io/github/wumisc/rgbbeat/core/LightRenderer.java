@@ -1,6 +1,7 @@
 package io.github.wumisc.rgbbeat.core;
 
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
@@ -46,18 +47,23 @@ public final class LightRenderer {
     private float shake = 0f; // 节拍震动强度：命中时置峰，随时间衰减
     private float emphasis = 0f; // 高音强调色脉冲：高音命中时置峰，随时间衰减
 
-    // ---- 烟花特效：先升空、再爆炸的柔和渐变粒子花（替代礼花，更像真烟花）----
-    private static final int FW_MAX = 4;          // 同时最多 4 朵
-    private static final int FW_PARTICLES = 24;   // 每朵爆炸粒子数
-    private static final int RISE_MS = 420;       // 升空时长(ms)
-    private static final int BURST_MS = 1300;     // 爆炸散开时长(ms)
+    // ---- 烟花特效：真实粒子物理系统（参考 Swing 烟花模型）----
+    private static final int FW_MAX = 6;          // 同时最多 6 朵
+    private static final int FW_PARTICLES = 60;  // 每朵爆炸粒子数（更多更华丽）
+    private static final int RISE_MS = 400;       // 升空时长(ms)
+    private static final int BURST_MS = 2000;     // 爆炸散开时长(ms)
     private final long[] fwStart = new long[FW_MAX];
     private final float[] fwCx = new float[FW_MAX], fwCy = new float[FW_MAX]; // cx=发射x, cy=爆炸高度y
     private final float[] fwSpeed = new float[FW_MAX];
     private final float[] fwHue = new float[FW_MAX];
-    private final String[] fwText = new String[FW_MAX]; // 爆炸中心显示：歌手名（作者）
-    private final float[][] fwDirX = new float[FW_MAX][FW_PARTICLES];
-    private final float[][] fwDirY = new float[FW_MAX][FW_PARTICLES];
+    private final String[] fwText = new String[FW_MAX]; // 爆炸中心显示：歌手名
+    // 粒子物理状态：每朵烟花的粒子
+    private final float[][] fwPx = new float[FW_MAX][FW_PARTICLES];   // 当前 x
+    private final float[][] fwPy = new float[FW_MAX][FW_PARTICLES];   // 当前 y
+    private final float[][] fwVx = new float[FW_MAX][FW_PARTICLES];   // x 速度
+    private final float[][] fwVy = new float[FW_MAX][FW_PARTICLES];   // y 速度
+    private final float[][] fwPhue = new float[FW_MAX][FW_PARTICLES]; // 粒子色相
+    private final float[][] fwPsize = new float[FW_MAX][FW_PARTICLES]; // 粒子大小
     private long nextFwAt = 0;
     private long lastFwBeatMs = 0;
     private int fwSlot = 0;
@@ -342,10 +348,22 @@ public final class LightRenderer {
         }
     }
 
-    /** 柔光圆点：中心亮、边缘渐隐 */
+    /** 柔光圆点：中心亮、多层渐隐（更柔和优雅） */
     private void drawGlowDot(Canvas c, float cx, float cy, float radius,
                              float hue, float energy, float b, float alpha) {
         if (radius < 1f) return;
+        // 外层光晕（更大、更淡）
+        paint.setShader(new RadialGradient(cx, cy, radius * 1.8f,
+                transparent(hue, 0),
+                edgeColor(hue, 0, energy, b, alpha * 0.35f),
+                Shader.TileMode.CLAMP));
+        c.drawCircle(cx, cy, radius * 1.8f, paint);
+        // 中层光晕
+        paint.setShader(new RadialGradient(cx, cy, radius * 1.3f,
+                edgeColor(hue, 0, energy, b, alpha * 0.6f),
+                transparent(hue, 0), Shader.TileMode.CLAMP));
+        c.drawCircle(cx, cy, radius * 1.3f, paint);
+        // 核心亮点
         paint.setShader(new RadialGradient(cx, cy, radius,
                 edgeColor(hue, 0, energy, b, alpha),
                 transparent(hue, 0), Shader.TileMode.CLAMP));
@@ -359,30 +377,41 @@ public final class LightRenderer {
         fwSlot = (fwSlot + 1) % FW_MAX;
         fwStart[slot] = SystemClock.elapsedRealtime();
         fwCx[slot] = w * (0.15f + rand.nextFloat() * 0.7f);       // 发射横坐标
-        fwCy[slot] = h * (0.18f + rand.nextFloat() * 0.28f);      // 爆炸高度：屏幕偏上
-        fwSpeed[slot] = 0.5f + rand.nextFloat() * 0.45f;          // 爆开速度
+        fwCy[slot] = h * (0.15f + rand.nextFloat() * 0.30f);      // 爆炸高度：屏幕偏上
+        // 爆开速度随人声高低变化：高音→更快更大，低音→更慢更紧凑
+        float pitch = state.pitchLevel;
+        fwSpeed[slot] = (0.45f + rand.nextFloat() * 0.40f) * (0.7f + pitch * 0.6f);
         float base = prefs.lightColorHue();
-        fwHue[slot] = base >= 0 ? base : rand.nextFloat() * 360f;
+        // 烟花颜色随人声高低偏移：低音偏暖（红/橙），高音偏冷（蓝/紫）
+        fwHue[slot] = base >= 0 ? base : (state.hue + pitch * 120f - 60f + rand.nextFloat() * 60f);
         // 爆炸中心显示"作者名字"：优先歌手，无则歌名（跨线程 volatile 读）
         String nm = state.artist;
         if (nm == null || nm.isEmpty()) nm = state.title;
         fwText[slot] = nm;
+        // 初始化爆炸粒子：从中心点向四周发射
         for (int j = 0; j < FW_PARTICLES; j++) {
-            float a = (float) (Math.PI * 2 * j / FW_PARTICLES) + rand.nextFloat() * 0.4f;
-            float r = 0.75f + rand.nextFloat() * 0.5f;
-            fwDirX[slot][j] = (float) Math.cos(a) * r;
-            fwDirY[slot][j] = (float) Math.sin(a) * r;
+            float angle = (float) (Math.PI * 2 * j / FW_PARTICLES) + rand.nextFloat() * 0.6f;
+            float speed = fwSpeed[slot] * (0.6f + rand.nextFloat() * 0.6f);
+            fwPx[slot][j] = fwCx[slot];
+            fwPy[slot][j] = fwCy[slot];
+            fwVx[slot][j] = speed * (float) Math.cos(angle);
+            fwVy[slot][j] = speed * (float) Math.sin(angle);
+            fwPhue[slot][j] = fwHue[slot] + (rand.nextFloat() - 0.5f) * 60f;
+            fwPsize[slot][j] = 0.6f + rand.nextFloat() * 0.8f;
         }
     }
 
-    /** 烟花绘制：先升空（光柱拖尾），再爆炸（径向扩散+轻重力+渐隐） */
+    /** 烟花绘制：先升空（光柱拖尾），再爆炸（真实粒子物理：重力+阻尼+渐隐） */
     private void drawFireworks(Canvas c, int w, int h, float hue, float b) {
         long now = SystemClock.elapsedRealtime();
-        if (state.beat && now - lastFwBeatMs > 1200) {
+        // 高音触发更频繁的烟花
+        float pitch = state.pitchLevel;
+        float triggerInterval = 1200f - pitch * 500f; // 高音时烟花更密
+        if (state.beat && now - lastFwBeatMs > triggerInterval) {
             lastFwBeatMs = now;
             spawnFirework(w, h);
         } else if (now >= nextFwAt) {
-            nextFwAt = now + 2800;
+            nextFwAt = now + (long) (2800 - pitch * 1000);
             spawnFirework(w, h);
         }
         float shortSide = Math.min(w, h);
@@ -395,38 +424,76 @@ public final class LightRenderer {
                 float p = el / (float) RISE_MS;
                 float y = h * 1.02f - p * (h * 1.02f - burstY);
                 float size = shortSide * 0.014f;
-                for (int k = 0; k < 4; k++) {
-                    float ty = y - k * size * 1.2f;
+                for (int k = 0; k < 5; k++) {
+                    float ty = y - k * size * 1.3f;
                     if (ty < -size) break;
-                    float sz = size * (1f - k * 0.16f);
-                    float a = Math.max(0f, (1f - p * 0.55f) * (0.85f - k * 0.13f));
+                    float sz = size * (1f - k * 0.14f);
+                    float a = Math.max(0f, (1f - p * 0.55f) * (0.85f - k * 0.12f));
                     drawGlowDot(c, cx, ty, sz, fwHue[i], 0f, b, a);
                 }
             } else {
-                // 爆炸段：粒子沿径向快速散开 + 轻重力 + 渐隐；爆炸中心炸出"作者名字"
+                // 爆炸段：真实粒子物理更新
                 float b2 = (el - RISE_MS) / (float) BURST_MS;
                 if (b2 > 1f) { fwStart[i] = 0; continue; }
+
+                // 爆炸冲击波：刚爆炸时的白色光环
+                if (b2 < 0.25f) {
+                    float shockR = shortSide * (0.05f + b2 * 0.35f);
+                    float shockA = (1f - b2 * 4f) * 0.5f;
+                    paint.setShader(new RadialGradient(cx, burstY, shockR,
+                            ColorEngine.edgeColor(fwHue[i], 0f, b, shockA),
+                            ColorEngine.edgeColor(fwHue[i], 0f, b, 0f),
+                            Shader.TileMode.CLAMP));
+                    c.drawCircle(cx, burstY, shockR, paint);
+                    paint.setShader(null);
+                }
+
+                // 粒子物理更新：重力 + 空气阻尼
+                float gravity = shortSide * 0.0008f; // 重力加速度
+                float damping = 0.985f;               // 空气阻尼（每帧速度衰减）
                 for (int j = 0; j < FW_PARTICLES; j++) {
-                    float r = fwSpeed[i] * b2 * shortSide * 0.55f;
-                    float px = cx + fwDirX[i][j] * r;
-                    float py = burstY + fwDirY[i][j] * r + b2 * b2 * shortSide * 0.12f;
+                    // 更新物理状态
+                    fwVx[i][j] *= damping;
+                    fwVy[i][j] = fwVy[i][j] * damping + gravity;
+                    fwPx[i][j] += fwVx[i][j];
+                    fwPy[i][j] += fwVy[i][j];
+                    float px = fwPx[i][j];
+                    float py = fwPy[i][j];
                     if (px < 0 || px > w || py < 0 || py > h) continue;
-                    float size = shortSide * (0.007f + b2 * 0.022f);         // 先小后大
-                    float a = Math.max(0f, Math.min(1f, (1f - b2) * 0.9f));  // 渐隐
-                    float fh = fwHue[i] + (j % 7) * 26f - 78f;               // 同色系微差更立体
-                    if (fh < 0) fh += 360f;
+                    // 粒子大小和透明度随生命周期变化
+                    float life = 1f - b2;
+                    float size = shortSide * fwPsize[i][j] * 0.012f * life;
+                    float a = Math.max(0f, life * 0.9f);
+                    float fh = fwPhue[i][j];
                     drawGlowDot(c, px, py, size, fh, 0f, b, a);
                 }
-                // 爆炸中心的作者名：随爆炸轻微放大 + 上浮 + 先亮后渐隐
+
+                // 爆炸中心的歌手名字：发光大字 + 上浮 + 渐隐，清晰可见
                 if (fwText[i] != null && !fwText[i].isEmpty()) {
                     paint.setShader(null);
                     paint.setStyle(Paint.Style.FILL);
                     paint.setTextAlign(Paint.Align.CENTER);
-                    paint.setTypeface(Typeface.DEFAULT_BOLD);
-                    paint.setTextSize(shortSide * (0.045f + 0.025f * b2));
-                    float ta = Math.max(0f, Math.min(1f, (1f - b2) * 0.95f));
-                    paint.setColor(edgeColor(fwHue[i], 0f, 0f, b, ta));
-                    float ty = burstY - shortSide * 0.02f - b2 * shortSide * 0.012f;
+                    paint.setTypeface(Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD));
+                    // 文字更大：爆炸初期小，中间最大，后期渐隐
+                    float textScale = 0.8f + Math.min(1f, b2 * 3f) * 0.4f;
+                    paint.setTextSize(shortSide * 0.055f * textScale);
+                    // 文字停留更久：前 60% 时间保持高亮，后 40% 渐隐
+                    float ta;
+                    if (b2 < 0.5f) {
+                        ta = Math.min(1f, b2 * 4f); // 快速淡入
+                    } else {
+                        ta = 1f - (b2 - 0.5f) * 1.5f; // 缓慢淡出
+                    }
+                    ta = Math.max(0f, Math.min(1f, ta));
+                    float ty = burstY - shortSide * 0.02f - b2 * shortSide * 0.02f;
+                    // 文字外发光：先画一层大模糊的彩色光晕
+                    paint.setColor(edgeColor(fwHue[i], 0f, 0f, b, ta * 0.4f));
+                    paint.setShadowLayer(shortSide * 0.02f, 0, 0,
+                            ColorEngine.edgeColor(fwHue[i], 0f, b, ta * 0.8f));
+                    c.drawText(fwText[i], cx, ty, paint);
+                    // 再画白色核心文字，保证清晰
+                    paint.setShadowLayer(0, 0, 0, 0);
+                    paint.setColor(Color.argb((int)(ta * 255), 255, 255, 255));
                     c.drawText(fwText[i], cx, ty, paint);
                     paint.setTextAlign(Paint.Align.LEFT);
                     paint.setTypeface(Typeface.DEFAULT);

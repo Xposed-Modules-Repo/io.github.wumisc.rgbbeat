@@ -4,12 +4,12 @@ import android.graphics.Color;
 
 /**
  * 色彩引擎：在 HSV 色轮上生成律动颜色。
- * 四边颜色沿色轮等距分布（红-青 / 品红-绿 / 蓝-黄…），色相随音乐进度漂移，亮度随能量脉动。
+ * v3.0 改进：更低饱和度 + 柔化处理，更接近 Miuix 风格的柔和高级感。
  */
 public final class ColorEngine {
 
-    private static final float SAT = 0.72f;  // 饱和度：降低，柔和高级不刺眼
-    private static final float VAL = 0.96f;  // HSV 亮度：略降，避免过曝
+    private static final float SAT = 0.62f;  // 饱和度：降低，柔和高级不刺眼
+    private static final float VAL = 0.92f;  // HSV 亮度：略降，避免过曝
 
     /** 根据当前色相与能量，计算某条边的 ARGB 颜色 */
     public static int edgeColor(float hue, float energy, float brightness, float alphaScale) {

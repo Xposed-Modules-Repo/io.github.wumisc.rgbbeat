@@ -107,6 +107,8 @@ public final class Prefs {
 
     public int vibrationIntensity() { return sp.getInt("vibration_intensity", 120); }
 
+    public boolean animEnabled() { return sp.getBoolean("anim_enabled", true); }
+
     public boolean autoStart() { return sp.getBoolean("auto_start", true); }
 
     /** 指定应用自动开启光效总开关 */

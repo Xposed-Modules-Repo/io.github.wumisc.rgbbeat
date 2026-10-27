@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
@@ -21,7 +22,6 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -33,21 +33,19 @@ import io.github.wumisc.rgbbeat.core.Prefs;
 public class MainActivity extends AppCompatActivity {
 
     private Prefs prefs;
-    private TextView tvStatus;
-    private TextView tvInfo;
-    private MaterialSwitch swService;
-    private MaterialSwitch swCarsick;
-    private MaterialSwitch swMotionTrigger;
-    private MaterialSwitch swToast;
-    private MaterialSwitch swMusicAuto;
+    private TextView tvStatus, tvInfo, tvAboutVersion;
+    private MaterialSwitch swCarsick, swMotionTrigger, swToast, swMusicAuto, swVibration, swAnim;
     private RadioGroup rgData;
+    private View pageHome, pageFx, pageAbout;
+    private View tabHome, tabFx, tabAbout;
+    private View swService;
     private boolean updating = false;
-    /** 服务状态同步监视：服务可能被无障碍/自动启动异步拉起，需定时刷新 UI 显示"运行中" */
+    private int currentTab = 0;
+
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final Runnable serviceMonitor = new Runnable() {
         @Override
         public void run() {
-            // 仅当服务已运行但界面仍显示未运行（或状态不同步）时刷新
             if (BeatService.instance() != null) refresh();
             uiHandler.postDelayed(this, 1500);
         }
@@ -60,56 +58,74 @@ public class MainActivity extends AppCompatActivity {
         DiagLog.init(this);
         prefs = new Prefs(this);
 
+        // 页面
+        pageHome = findViewById(R.id.page_home);
+        pageFx = findViewById(R.id.page_fx);
+        pageAbout = findViewById(R.id.page_about);
+        tabHome = findViewById(R.id.tab_home);
+        tabFx = findViewById(R.id.tab_fx);
+        tabAbout = findViewById(R.id.tab_about);
+
+        // 状态
         tvStatus = findViewById(R.id.tvStatus);
         tvInfo = findViewById(R.id.tvInfo);
+        tvAboutVersion = findViewById(R.id.tvAboutVersion);
+        tvAboutVersion.setText("RGBBeat v3.0");
+
+        // 开关
         swService = findViewById(R.id.swService);
         swCarsick = findViewById(R.id.swCarsick);
         swMotionTrigger = findViewById(R.id.swMotionTrigger);
         swToast = findViewById(R.id.swToast);
         swMusicAuto = findViewById(R.id.swMusicAuto);
+        swVibration = findViewById(R.id.swVibration);
+        swAnim = findViewById(R.id.swAnim);
         rgData = findViewById(R.id.rgData);
 
-        // 服务总开关（替代原大按钮）
-        swService.setOnCheckedChangeListener((b, checked) -> {
-            if (updating) return;
-            if (checked) {
-                if (!canDrawOverlays()) {
-                    Toast.makeText(this, R.string.toast_permission_denied, Toast.LENGTH_SHORT).show();
-                    grantOverlay();
-                    refresh();
-                    return;
-                }
-                ensureRuntimePermissions();
-                BeatService.start(this);
-                Toast.makeText(this, R.string.toast_started, Toast.LENGTH_SHORT).show();
-            } else {
-                BeatService.stop(this);
-                Toast.makeText(this, R.string.toast_stopped, Toast.LENGTH_SHORT).show();
-            }
-            // 服务启停是异步的：延后同步真实运行状态，避免开关瞬时弹回/不同步
-            swService.postDelayed(this::refresh, 800);
-        });
+        // Tab 切换
+        tabHome.setOnClickListener(v -> switchTab(0));
+        tabFx.setOnClickListener(v -> switchTab(1));
+        tabAbout.setOnClickListener(v -> switchTab(2));
 
-        // 晕车场景配置
-        swCarsick.setChecked(prefs.carsickEnabled());
-        swMotionTrigger.setChecked(prefs.motionTriggerEnabled());
-        swToast.setChecked(prefs.carsickToast());
-        swCarsick.setOnCheckedChangeListener((b, checked) -> applyBool("carsick_enabled", checked));
-        swMotionTrigger.setOnCheckedChangeListener((b, checked) -> applyBool("motion_trigger_enabled", checked));
-        swToast.setOnCheckedChangeListener((b, checked) -> applyBool("carsick_toast", checked));
+        // 服务开关（圆形按钮）
+        swService.setOnClickListener(v -> toggleService());
 
-        // 音乐自动触发：有音乐播放开光效，音乐停止关光效
-        swMusicAuto.setChecked(prefs.musicAutoEnabled());
-        swMusicAuto.setOnCheckedChangeListener((b, checked) -> {
-            prefs.setMusicAutoEnabled(checked);
+        // 震动开关
+        swVibration.setChecked(prefs.vibrationEnabled());
+        swVibration.setOnCheckedChangeListener((b, c) -> {
+            prefs.sp().edit().putBoolean("vibration_enabled", c).apply();
             BeatService svc = BeatService.instance();
             if (svc != null) svc.applyPrefs();
         });
 
-        // 光效颜色 DIY：随节奏自动彩虹 或 自定义主色
+        // 动效开关
+        swAnim.setChecked(prefs.animEnabled());
+        swAnim.setOnCheckedChangeListener((b, c) -> {
+            prefs.sp().edit().putBoolean("anim_enabled", c).apply();
+            BeatService svc = BeatService.instance();
+            if (svc != null) svc.applyPrefs();
+        });
+
+        // 晕车
+        swCarsick.setChecked(prefs.carsickEnabled());
+        swMotionTrigger.setChecked(prefs.motionTriggerEnabled());
+        swToast.setChecked(prefs.carsickToast());
+        swCarsick.setOnCheckedChangeListener((b, c) -> applyBool("carsick_enabled", c));
+        swMotionTrigger.setOnCheckedChangeListener((b, c) -> applyBool("motion_trigger_enabled", c));
+        swToast.setOnCheckedChangeListener((b, c) -> applyBool("carsick_toast", c));
+
+        // 音乐自动
+        swMusicAuto.setChecked(prefs.musicAutoEnabled());
+        swMusicAuto.setOnCheckedChangeListener((b, c) -> {
+            prefs.setMusicAutoEnabled(c);
+            BeatService svc = BeatService.instance();
+            if (svc != null) svc.applyPrefs();
+        });
+
+        // 颜色
         buildColorPicker();
 
-        // 数据源模式（融合 / 音乐 / 晕车）
+        // 数据源
         String dm = prefs.dataMode();
         if ("motion".equals(dm)) rgData.check(R.id.rbMotion);
         else if ("music".equals(dm)) rgData.check(R.id.rbMusic);
@@ -125,15 +141,48 @@ public class MainActivity extends AppCompatActivity {
             if (svc != null) svc.applyPrefs();
         });
 
-        findViewById(R.id.btnAbout).setOnClickListener(v ->
-                startActivity(new Intent(this, AboutActivity.class)));
+        // 关于页按钮
         findViewById(R.id.btnRecommend).setOnClickListener(v ->
                 startActivity(new Intent(this, AppPickActivity.class)));
-        findViewById(R.id.btnSettings).setOnClickListener(v ->
-                startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.btnGrantOverlay).setOnClickListener(v -> grantOverlay());
         findViewById(R.id.btnGrantNotif).setOnClickListener(v -> requestNotifPermission());
         findViewById(R.id.btnDiagLog).setOnClickListener(v -> showDiagLog());
+    }
+
+    private void switchTab(int idx) {
+        currentTab = idx;
+        pageHome.setVisibility(idx == 0 ? View.VISIBLE : View.GONE);
+        pageFx.setVisibility(idx == 1 ? View.VISIBLE : View.GONE);
+        pageAbout.setVisibility(idx == 2 ? View.VISIBLE : View.GONE);
+        updateTabStyle(tabHome, idx == 0);
+        updateTabStyle(tabFx, idx == 1);
+        updateTabStyle(tabAbout, idx == 2);
+    }
+
+    private void updateTabStyle(View tab, boolean active) {
+        TextView tv = (TextView) ((LinearLayout) tab).getChildAt(1);
+        ImageView iv = (ImageView) ((LinearLayout) tab).getChildAt(0);
+        int color = active ? getColor(R.color.primary) : getColor(R.color.text_hint);
+        tv.setTextColor(color);
+        iv.setColorFilter(color);
+    }
+
+    private void toggleService() {
+        boolean running = BeatService.instance() != null;
+        if (running) {
+            BeatService.stop(this);
+            Toast.makeText(this, R.string.toast_stopped, Toast.LENGTH_SHORT).show();
+        } else {
+            if (!canDrawOverlays()) {
+                Toast.makeText(this, R.string.toast_permission_denied, Toast.LENGTH_SHORT).show();
+                grantOverlay();
+                return;
+            }
+            ensureRuntimePermissions();
+            BeatService.start(this);
+            Toast.makeText(this, R.string.toast_started, Toast.LENGTH_SHORT).show();
+        }
+        swService.postDelayed(this::refresh, 800);
     }
 
     private void applyBool(String key, boolean val) {
@@ -142,7 +191,6 @@ public class MainActivity extends AppCompatActivity {
         if (svc != null) svc.applyPrefs();
     }
 
-    // ---- 光效颜色 DIY：随节奏自动彩虹 或 用户指定主色 ----
     private static final float[] COLOR_HUES = {-1f, 280f, 190f, 230f, 320f, 30f, 120f, 0f};
     private static final String[] COLOR_LABELS = {"随节奏", "紫", "青", "蓝", "粉", "橙", "绿", "红"};
 
@@ -164,13 +212,12 @@ public class MainActivity extends AppCompatActivity {
                 prefs.setLightColorHue(h);
                 BeatService svc = BeatService.instance();
                 if (svc != null) svc.applyPrefs();
-                buildColorPicker(); // 刷新选中态
+                buildColorPicker();
             });
             group.addView(dot);
         }
     }
 
-    /** 色块背景：自动=彩虹扫色圆，自定义=该色相圆；选中加白描边 */
     private GradientDrawable colorDotDrawable(float hue, boolean selected) {
         GradientDrawable g;
         if (hue < 0) {
@@ -188,7 +235,6 @@ public class MainActivity extends AppCompatActivity {
         return g;
     }
 
-    /** 查看调试日志（无需 adb）：读取日志文件，弹窗显示并支持分享 */
     private void showDiagLog() {
         String log = DiagLog.readLast(300);
         TextView tv = new TextView(this);
@@ -224,8 +270,6 @@ public class MainActivity extends AppCompatActivity {
         ensureRuntimePermissions();
         uiHandler.removeCallbacks(serviceMonitor);
         uiHandler.post(serviceMonitor);
-        // 自动功能开启时（音乐自动触发 / 开机自启），打开 App 即自动拉起光效服务，
-        // 实现"放音乐就自动开光效"而无需手动点服务开关
         try {
             if (BeatService.instance() == null && (prefs.musicAutoEnabled() || prefs.autoStart())) {
                 BeatService.start(this);
@@ -242,9 +286,11 @@ public class MainActivity extends AppCompatActivity {
     private void refresh() {
         updating = true;
         boolean running = BeatService.instance() != null;
-        swService.setChecked(running);
         tvStatus.setText(running ? R.string.service_status_running : R.string.service_status_stopped);
         tvStatus.setTextColor(getColor(running ? R.color.status_running : R.color.status_stopped));
+        // 服务按钮颜色：运行=绿色，停止=蓝色
+        ((com.google.android.material.card.MaterialCardView) swService)
+                .setCardBackgroundColor(getColor(running ? R.color.status_running : R.color.primary));
         if (running) {
             String[] mv = getResources().getStringArray(R.array.data_mode_values);
             String[] ml = getResources().getStringArray(R.array.data_mode_labels);
@@ -290,9 +336,7 @@ public class MainActivity extends AppCompatActivity {
     private void ensureRuntimePermissions() {
         String[] needed;
         if (Build.VERSION.SDK_INT >= 33) {
-            needed = new String[]{
-                    Manifest.permission.RECORD_AUDIO,
-                    Manifest.permission.POST_NOTIFICATIONS};
+            needed = new String[]{Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS};
         } else {
             needed = new String[]{Manifest.permission.RECORD_AUDIO};
         }
