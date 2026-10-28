@@ -157,6 +157,20 @@ RGBBeat/
 
 本模块建立在 **LSPosed / Xposed** 框架之上，致敬并感谢这些伟大的开源项目，以及整个 Xposed / LSPosed 社区——正是他们让安卓模块生态生生不息。
 
+### 粒子氛围特效灵感来源
+
+RGBBeat 的 **3D 粒子氛围引擎**（3D 粒子玫瑰、星场穿越、多形状变形）在设计与算法思路上借鉴了以下开源项目（仅借鉴思路与机制，实现均为原创 Java/Canvas 代码，并遵守各自原始许可证）：
+
+| 项目 | 作者 | 借鉴点 |
+|------|------|--------|
+| [morph-particles](https://github.com/MisterPrada/morph-particles) | MisterPrada | 粒子在形状点云间变形的机制（玫瑰 ↔ 爱心 ↔ 歌手名点阵） |
+| [qixi-particle-rose](https://github.com/mrsuperguo/qixi-particle-rose) | mrsuperguo | 旋转 3D 粒子玫瑰 + 音乐互动绽放 |
+| [eternal-rose-code](https://github.com/Ling-Ta/eternal-rose-code) | Ling-Ta | 粒子玫瑰参数曲线与粒子汇聚效果 |
+| [particle-rose-mobile](https://github.com/FBBer/particle-rose-mobile) | FBBer | 手机端可旋转 3D 粒子花束 |
+| [Starfield-wallpaper-for-Lively](https://github.com/HaLo2FrEeEk/Starfield-wallpaper-for-Lively) | HaLo2FrEeEk | 星场粒子流动（星际穿越背景层） |
+
+感谢以上作者与所有用代码创造浪漫的程序员们。
+
 ---
 
 ## 💖 支持捐赠

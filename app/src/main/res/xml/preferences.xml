@@ -104,4 +104,19 @@
             android:min="10"
             android:max="255" />
     </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_section_particle">
+        <SwitchPreference
+            android:key="particle_mode"
+            android:title="@string/pref_particle_enabled_title"
+            android:summary="@string/pref_particle_enabled_summary"
+            android:defaultValue="false" />
+        <ListPreference
+            android:key="particle_quality"
+            android:title="@string/pref_particle_quality_title"
+            android:summary="@string/pref_particle_quality_summary"
+            android:defaultValue="high"
+            android:entries="@array/particle_quality_labels"
+            android:entryValues="@array/particle_quality_values" />
+    </PreferenceCategory>
 </PreferenceScreen>

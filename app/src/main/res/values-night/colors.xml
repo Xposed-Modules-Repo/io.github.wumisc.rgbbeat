@@ -5,12 +5,10 @@
     <color name="bg">#000000</color>
     <color name="card_bg">#1C1C1E</color>
     <color name="card_stroke">#2C2C2E</color>
-    <color name="divider">#2C2C2E</color>
     <color name="text_primary">#FFFFFF</color>
     <color name="text_secondary">#8E8E93</color>
     <color name="text_hint">#636366</color>
     <color name="nav_bg">#1C1C1E</color>
-    <color name="button_bg">#2C2C2E</color>
 
     <!-- 状态 -->
     <color name="status_running">#30D158</color>
@@ -20,6 +18,4 @@
     <color name="surface_card">#1C1C1E</color>
     <color name="surface_card_alt">#2C2C2E</color>
     <color name="bg_top">#000000</color>
-    <color name="bg_bottom">#000000</color>
-    <color name="bg_glow_purple">#220A84FF</color>
 </resources>

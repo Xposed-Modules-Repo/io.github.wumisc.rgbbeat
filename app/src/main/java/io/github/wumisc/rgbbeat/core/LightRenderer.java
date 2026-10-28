@@ -1,5 +1,6 @@
 package io.github.wumisc.rgbbeat.core;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
@@ -34,11 +35,14 @@ public final class LightRenderer {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final java.util.Random rand = new java.util.Random();
 
-    // 沿左右竖边上下漂移的细小粒子（随机相位/大小/色差，首帧即初始化）
-    private static final int PARTICLES = 16;
-    private final float[] pPhase = new float[PARTICLES];
-    private final float[] pSize = new float[PARTICLES];
-    private final float[] pHue = new float[PARTICLES];
+    // ---- 左右两侧 3D 流光：竖边流动 + z 深度行波 + 透视近大远小 ----
+    private static final int S3 = 48;                    // 每侧 3D 流光粒子数
+    private final float[] s3Phase = new float[S3];       // 纵向流动相位
+    private final float[] s3Zph = new float[S3];         // z 行波相位偏移
+    private final float[] s3Zr = new float[S3];          // 每粒子随机深度偏移
+    private final float[] s3Size = new float[S3];
+    private final float[] s3Hue = new float[S3];
+    private final float[] s3Jit = new float[S3];         // 颠簸随机（晕车抖动）
 
     private View view;
     private Thread thread;
@@ -46,6 +50,19 @@ public final class LightRenderer {
     private long lastFrame = 0;
     private float shake = 0f; // 节拍震动强度：命中时置峰，随时间衰减
     private float emphasis = 0f; // 高音强调色脉冲：高音命中时置峰，随时间衰减
+
+    // ---- 3D 粒子氛围引擎（玫瑰↔爱心↔歌手名变形 + 星际星场 + 粒子雨/炸开）----
+    private Particle3DEngine engine;
+    private boolean engineInitDone = false;
+    private boolean engineHigh = false;
+    private String lastSongKey = "";
+    private long lastEngineMs = 0;
+    private boolean lastHi = false;
+    private int shapeStage = 0; // 换歌循环：0 玫瑰 →1 爱心 →2 星形 →3 音符 →4 菱形 →5 歌手名
+    // 随歌曲换色：换歌循环调色板，自动模式（未设固定色）下整效随歌换色
+    private static final float[] SONG_PALETTE = {310f, 0f, 45f, 120f, 190f, 250f, 280f, 20f};
+    private int colorStage = 0;
+    private float songHue = 310f;
 
     // ---- 烟花特效：真实粒子物理系统（参考 Swing 烟花模型）----
     private static final int FW_MAX = 6;          // 同时最多 6 朵
@@ -71,10 +88,13 @@ public final class LightRenderer {
     public LightRenderer(BeatState state, Prefs prefs) {
         this.state = state;
         this.prefs = prefs;
-        for (int i = 0; i < PARTICLES; i++) {
-            pPhase[i] = rand.nextFloat();
-            pSize[i] = 3f + rand.nextFloat() * 4f;
-            pHue[i] = rand.nextFloat() * 360f;
+        for (int i = 0; i < S3; i++) {
+            s3Phase[i] = rand.nextFloat();
+            s3Zph[i] = rand.nextFloat() * 6.283f;
+            s3Zr[i] = (rand.nextFloat() - 0.5f) * 0.5f;
+            s3Size[i] = 2.5f + rand.nextFloat() * 4f;
+            s3Hue[i] = rand.nextFloat() * 360f;
+            s3Jit[i] = rand.nextFloat();
         }
     }
 
@@ -139,9 +159,14 @@ public final class LightRenderer {
         float hue = state.hue;
         float brightness = prefs.brightness();
 
-        // 用户自定义主色：固定色相（-1 时保持跟随节奏自动彩虹）
+        // 用户自定义主色：固定色相（-1 时保持跟随节奏）
         float userHue = prefs.lightColorHue();
         if (userHue >= 0f) hue = userHue;
+        else if (prefs.particleEnabled()) hue = songHue; // 自动模式 + 粒子引擎：随歌曲换色
+        // 3D 粒子氛围引擎：玫瑰主角 + 星场 + 粒子雨/炸开（叠加在所有模式之上）
+        if (prefs.particleEnabled()) {
+            drawParticleAmbience(canvas, w, h, hue, energy, beat, brightness);
+        }
 
         // 烟花特效叠加在所有模式上：节拍命中升空爆炸（爆心炸出作者名）、空闲周期绽放
         drawFireworks(canvas, w, h, hue, brightness);
@@ -213,8 +238,8 @@ public final class LightRenderer {
         // 1) 左右竖向光带：边缘→中心渐隐 + 带内上下流动流光
         drawSideBand(c, w, h, haloW, effHue, energy, b, base, wy, hh);
 
-        // 2) 细小粒子沿左右竖边上下漂移，随节拍跳动；高音出现强调色亮点
-        drawSideParticles(c, w, h, haloW, effHue, energy, beat, b, base);
+        // 2) 两侧 3D 流光：竖边流动 + 深度行波 + 近大远小，随节拍/高音增强
+        drawSideStream3D(c, w, h, haloW, effHue, energy, beat, b, base, 0f);
     }
 
     /**
@@ -244,7 +269,8 @@ public final class LightRenderer {
         float waveY = hh + (state.marqueeT % 1f) * Math.max(0f, h - 2f * hh);
         drawSideBand(c, w, h, haloW, effHue, energy, b, base, waveY, hh);
 
-        drawMotionParticles(c, w, h, haloW, effHue, b, base, x, y, jitter);
+        // 两侧 3D 流光（晕车偏移：加减速/转弯/颠簸）
+        drawSideStream3D(c, w, h, haloW, effHue, energy, state.beat, b, base, 1f);
     }
 
     /** 融合绘制：晕车缓解光效为基底（随车辆运动变化），叠加音乐节拍/能量增强亮度与脉动 */
@@ -269,36 +295,8 @@ public final class LightRenderer {
         float waveY = hh + (state.marqueeT % 1f) * Math.max(0f, h - 2f * hh);
         drawSideBand(c, w, h, haloW, effHue, energy, b, base, waveY, hh);
 
-        drawMotionParticles(c, w, h, haloW, effHue, b, base, x, y, jitter);
-    }
-
-    /** 晕车粒子：沿左右竖边上下漂移，随加减速/转弯偏移、颠簸抖动 */
-    private void drawMotionParticles(Canvas c, int w, int h, float haloW, float effHue,
-                                     float b, float base, float x, float y, float jitter) {
-        float energy = state.motionEnergy;
-        float amp = jitter * 26f; // 颠簸抖动幅度
-        float yOff = y * h * 0.22f; // 加减速纵向偏移
-        float xOff = -x * h * 0.10f; // 转弯反方向偏移（圆点向弯道反方向移，缓解晕车）
-        for (int i = 0; i < PARTICLES; i++) {
-            float py = ((state.marqueeT + pPhase[i]) % 1f) * h + yOff;
-            float px = (rand.nextFloat() - 0.5f) * 2f * amp;
-            float pj = (rand.nextFloat() - 0.5f) * 2f * amp;
-            float r = pSize[i] * (1f + energy * 1.2f + jitter * 0.8f);
-            float a = Math.min(0.95f, base + 0.30f + jitter * 0.15f);
-            float dotHue = (effHue + pHue[i]) % 360f;
-            drawGlowDot(c, haloW * 0.55f + xOff + px, py + pj, r, dotHue, energy, b, a);
-            drawGlowDot(c, w - haloW * 0.55f + xOff + px, py + pj, r, dotHue, energy, b, a);
-        }
-        // 转弯/加减速时的强调亮点：向反方向更醒目地偏移，突出运动方向感
-        if (Math.abs(x) > 0.25f || Math.abs(y) > 0.25f) {
-            float ey = (h * 0.5f) + yOff * 1.6f;
-            float er = haloW * (0.7f + Math.abs(x) * 0.6f + Math.abs(y) * 0.6f);
-            float ea = Math.min(1f, 0.5f + Math.abs(x) * 0.4f + Math.abs(y) * 0.4f);
-            float dlx = haloW * 0.5f + xOff * 1.5f;
-            float drx = w - haloW * 0.5f + xOff * 1.5f;
-            drawGlowDot(c, dlx, ey, er, (effHue + 200f) % 360f, energy, b, ea);
-            drawGlowDot(c, drx, ey, er, (effHue + 200f) % 360f, energy, b, ea);
-        }
+        // 两侧 3D 流光（晕车偏移：加减速/转弯/颠簸）
+        drawSideStream3D(c, w, h, haloW, effHue, energy, state.beat, b, base, 1f);
     }
 
     /** 左右竖向光带：本体（边缘→中心水平渐隐）+ 带内上下流动的流光亮带 */    private void drawSideBand(Canvas c, int w, int h, float haloW, float effHue,
@@ -321,30 +319,181 @@ public final class LightRenderer {
                         edgeColor(effHue, 270, energy, b, wa), transparent(effHue, 270), Shader.TileMode.CLAMP));
     }
 
-    /** 细小粒子：沿左右竖边上下漂移，节拍时跳动；高音时出现特别明亮的强调色亮点 */
-    private void drawSideParticles(Canvas c, int w, int h, float haloW, float effHue,
-                                   float energy, boolean beat, float b, float base) {
+    /** 左右两侧 3D 流光：竖边流动 + z 深度行波 + 透视近大远小，节拍/高音增强。
+     *  motionWeight>0 时叠加晕车偏移（加减速/转弯/颠簸），兼容运动场景 */
+    private void drawSideStream3D(Canvas c, int w, int h, float haloW, float effHue,
+                                  float energy, boolean beat, float b, float base, float motionWeight) {
+        float t = SystemClock.elapsedRealtime() / 1000f;
         float pitch = state.pitchLevel;
-        float amp = shake * (0.4f + 0.9f * pitch) * 5f; // 节拍跳动位移
-        for (int i = 0; i < PARTICLES; i++) {
-            float y = ((state.marqueeT + pPhase[i]) % 1f) * h;
-            float jx = (rand.nextFloat() - 0.5f) * 2f * amp;
-            float jy = (rand.nextFloat() - 0.5f) * 2f * amp;
-            float r = pSize[i] * (1f + energy * 1.4f + (beat ? 0.6f : 0f));
-            float a = Math.min(0.95f, base + 0.30f + (beat ? 0.20f : 0f));
-            float dotHue = (effHue + pHue[i]) % 360f; // 冷色系内细微色差
-            float lx = haloW * 0.55f;
-            float rx = w - haloW * 0.55f;
-            drawGlowDot(c, lx + jx, y + jy, r, dotHue, energy, b, a);
-            drawGlowDot(c, rx + jx, y + jy, r, dotHue, energy, b, a);
+        // 流动速度跟随人声高低：高音快、低音慢，叠加上能量/节拍
+        float speed = 0.35f + pitch * 1.1f + state.energy * 0.35f + (beat ? 0.2f : 0f);
+        // z 行波振幅：能量/高音/节拍增强 → 3D 纵深起伏更明显
+        float amp = 0.55f + energy * 0.5f + pitch * 0.45f + (beat ? 0.35f : 0f);
+        float push = haloW * 0.16f; // 近粒子向屏内凸出量
+        // 晕车偏移：加减速/转弯/颠簸
+        float ampJ = state.motionJitter * 26f * motionWeight;
+        float yOff = state.motionY * h * 0.22f * motionWeight;
+        float xOff = -state.motionX * h * 0.10f * motionWeight;
+        for (int i = 0; i < S3; i++) {
+            float y = ((state.marqueeT * speed + s3Phase[i]) % 1f) * h + yOff;
+            // z 深度行波：纵向 4 个起伏周期随 t 流动，加每粒子随机深度 → 近大远小
+            float z = amp * (float) Math.sin(6.283f * (y / h) * 4f + t * 2.4f + s3Zph[i]) + s3Zr[i];
+            float sc = 1f + 0.5f * z;
+            if (sc < 0.35f) sc = 0.35f;
+            if (sc > 1.5f) sc = 1.5f;
+            float jx = (s3Jit[i] - 0.5f) * 2f * ampJ;
+            float jy = (s3Jit[i] - 0.5f) * 2f * ampJ * 0.5f;
+            float r = s3Size[i] * sc * (1f + energy * 1.2f + (beat ? 0.5f : 0f));
+            float a = Math.min(0.95f, base + 0.35f * sc + (beat ? 0.18f : 0f));
+            float dotHue = (effHue + s3Hue[i]) % 360f;
+            float lx = haloW * 0.55f + xOff + z * push + jx;
+            float rx = w - haloW * 0.55f + xOff - z * push - jx;
+            drawGlowDot(c, lx, y + jy, r, dotHue, energy, b, a);
+            drawGlowDot(c, rx, y + jy, r, dotHue, energy, b, a);
         }
-        // 高音强调色亮点：高音时沿左右边各一个明亮强调色光点，突出灵动动感
-        if (emphasis > 0.05f) {
-            float ey = ((state.marqueeT * 1.4f + 0.35f) % 1f) * h;
-            float er = haloW * (0.5f + emphasis * 0.6f);
-            float ea = Math.min(1f, 0.55f + emphasis * 0.40f);
-            drawGlowDot(c, haloW * 0.5f, ey, er, state.pitchHue, energy, b, ea);
-            drawGlowDot(c, w - haloW * 0.5f, ey, er, state.pitchHue, energy, b, ea);
+        // 高音/节拍前端强调光珠：最凸出、大而亮，突出"流光前端"
+        if (emphasis > 0.05f || beat) {
+            float ey = ((state.marqueeT * speed * 1.4f + 0.5f) % 1f) * h + yOff;
+            float zf = amp;
+            float rf = haloW * (0.5f + zf * 0.28f + emphasis * 0.5f);
+            float af = Math.min(1f, 0.6f + zf * 0.22f + emphasis * 0.3f);
+            drawGlowDot(c, haloW * 0.5f + xOff + zf * push, ey, rf, state.pitchHue, energy, b, af);
+            drawGlowDot(c, w - haloW * 0.5f + xOff - zf * push, ey, rf, state.pitchHue, energy, b, af);
+        }
+    }
+
+    // ---------- 3D 粒子氛围引擎渲染 ----------
+
+    /** 惰性初始化引擎（按档位高画质/节电） */
+    private void ensureParticleEngine() {
+        boolean high = !"eco".equals(prefs.particleQuality());
+        if (engineInitDone && high == engineHigh) return; // 未变则复用
+        engineHigh = high;
+        engineInitDone = true;
+        try {
+            engine = new Particle3DEngine(high, System.nanoTime());
+        } catch (Throwable t) {
+            DiagLog.w(TAG, "3D engine init failed: " + t);
+            engine = null;
+        }
+    }
+
+    /** 驱动引擎：换歌变形 + 节拍粒子雨 + 高音炸开（边沿触发） */
+    private void updateParticleEngine() {
+        if (engine == null) return;
+        // 换歌检测：artist/title 变化 → 玫瑰→爱心→星形→音符→菱形→歌手名 循环变形 + 随歌换色
+        String key = (state.artist != null ? state.artist : "") + "|"
+                + (state.title != null ? state.title : "");
+        if (!key.equals(lastSongKey)) {
+            lastSongKey = key;
+            shapeStage = (shapeStage + 1) % 6;
+            colorStage = (colorStage + 1) % SONG_PALETTE.length;
+            songHue = SONG_PALETTE[colorStage];
+            float[][] cloud;
+            switch (shapeStage) {
+                case 1: cloud = Particle3DEngine.heartCloud(engine.shapeCount(), 1f); break;
+                case 2: cloud = Particle3DEngine.starCloud(engine.shapeCount(), 1f); break;
+                case 3: cloud = Particle3DEngine.noteCloud(engine.shapeCount(), 1f); break;
+                case 4: cloud = Particle3DEngine.diamondCloud(engine.shapeCount(), 1f); break;
+                case 5:
+                    if (key.length() > 2) cloud = textCloud(state.artist != null ? state.artist : state.title, engine.shapeCount());
+                    else cloud = Particle3DEngine.starCloud(engine.shapeCount(), 1f);
+                    break;
+                default: cloud = Particle3DEngine.roseCloud(engine.shapeCount(), 1f);
+            }
+            engine.morphTo(cloud);
+        }
+        // 节拍 → 粒子雨
+        if (state.beat) engine.rain(state.energy);
+        // 高音/强拍 → 炸开（边沿触发，避免持续炸）
+        boolean hi = state.pitchLevel > 0.55f && (state.beat || state.energy > 0.25f);
+        if (hi && !lastHi) engine.explode();
+        lastHi = hi;
+    }
+
+    /** 渲染 3D 粒子氛围：星场（背景）+ 玫瑰主角 + 粒子雨 */
+    private void drawParticleAmbience(Canvas c, int w, int h, float hue,
+                                      float energy, boolean beat, float b) {
+        ensureParticleEngine();
+        if (engine == null) return;
+        updateParticleEngine();
+
+        long now = SystemClock.elapsedRealtime();
+        float dt = lastEngineMs == 0 ? 0.016f : Math.min(0.1f, (now - lastEngineMs) / 1000f);
+        lastEngineMs = now;
+
+        float cx = w * 0.5f, cy = h * 0.5f;
+        float shortSide = Math.min(w, h);
+        // 全屏主角尺寸；键盘可见（普通界面）→ 缩小为半透明氛围
+        float kb = state.keyboardVisible ? 0.55f : 1f;
+        float worldBase = shortSide * 0.022f * kb;
+        float worldAmp = shortSide * 0.0032f * kb;
+        float breath = now / 1000f * 1.2f;
+
+        engine.step(dt, breath, energy, beat, state.pitchLevel, 5.0f, worldBase, worldAmp, cx, cy);
+
+        // 1) 星场背景（星际穿越：近大远小、越亮越近）
+        int ns = engine.starCount();
+        for (int i = 0; i < ns; i++) {
+            float a = Math.min(0.9f, engine.ssAlpha[i] * 0.55f);
+            drawGlowDot(c, engine.ssx[i], engine.ssy[i], engine.ssSize[i], hue, energy, b, a);
+        }
+        // 2) 主角粒子：玫瑰/爱心/歌手名点阵
+        int np = engine.shapeCount();
+        float alphaScale = kb;
+        for (int i = 0; i < np; i++) {
+            float ph = engine.particleHue(i, hue);
+            drawGlowDot(c, engine.sx[i], engine.sy[i], engine.sSize[i],
+                    ph, energy, b, engine.sAlpha[i] * alphaScale * 0.85f);
+        }
+        // 3) 粒子雨：节拍洒落的明亮竖落点
+        for (int i = 0; i < Particle3DEngine.RAIN_MAX; i++) {
+            if (engine.rainLife(i) <= 0f) continue;
+            drawGlowDot(c, cx + engine.rainX(i) * worldBase, cy + engine.rainY(i) * worldBase,
+                    shortSide * 0.006f, engine.rainHue(i), energy, b,
+                    Math.min(1f, engine.rainLife(i) * 1.5f));
+        }
+    }
+
+    /** 歌手名点阵：把文字栅格化到 Bitmap，采样非透明像素成 3D 点云（±16 空间） */
+    private float[][] textCloud(String text, int n) {
+        try {
+            Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG);
+            tp.setColor(Color.WHITE);
+            tp.setTextSize(64f);
+            tp.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            float tw = tp.measureText(text);
+            int wpx = (int) Math.ceil(tw) + 16;
+            int hpx = 96;
+            Bitmap bmp = Bitmap.createBitmap(wpx, hpx, Bitmap.Config.ARGB_8888);
+            Canvas cb = new Canvas(bmp);
+            cb.drawText(text, 8f, 72f, tp);
+            // 采样
+            java.util.List<float[]> pts = new java.util.ArrayList<>();
+            int stride = Math.max(1, (int) Math.sqrt((double) wpx * hpx / Math.max(1, n)));
+            for (int py = 0; py < hpx; py += stride) {
+                for (int px = 0; px < wpx; px += stride) {
+                    if ((bmp.getPixel(px, py) >>> 24) > 40) {
+                        float nx = (px - wpx / 2f) / (wpx / 2f) * 16f;
+                        float ny = -(py - hpx / 2f) / (hpx / 2f) * 16f;
+                        // 平滑横向深度渐变（避免逐像素高频抖动被透视放大成噪点，保证可读）
+                        float nz = 0.3f * ((px - wpx / 2f) / (wpx / 2f));
+                        pts.add(new float[]{nx, ny, nz});
+                    }
+                }
+            }
+            bmp.recycle();
+            if (pts.isEmpty()) return Particle3DEngine.roseCloud(n, 1f);
+            float[][] out = new float[n][3];
+            java.util.Random r = new java.util.Random();
+            for (int i = 0; i < n; i++) {
+                float[] src = pts.get(r.nextInt(pts.size()));
+                out[i] = new float[]{src[0], src[1], src[2]};
+            }
+            return out;
+        } catch (Throwable t) {
+            DiagLog.w(TAG, "text cloud failed: " + t);
+            return Particle3DEngine.roseCloud(n, 1f);
         }
     }
 

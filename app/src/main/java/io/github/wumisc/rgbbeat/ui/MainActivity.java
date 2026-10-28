@@ -34,7 +34,8 @@ public class MainActivity extends AppCompatActivity {
 
     private Prefs prefs;
     private TextView tvStatus, tvInfo, tvAboutVersion;
-    private MaterialSwitch swCarsick, swMotionTrigger, swToast, swMusicAuto, swVibration, swAnim;
+    private MaterialSwitch swCarsick, swMotionTrigger, swToast, swMusicAuto, swVibration, swAnim, swParticle;
+    private TextView chipParticleHigh, chipParticleEco;
     private RadioGroup rgData;
     private View pageHome, pageFx, pageAbout;
     private View tabHome, tabFx, tabAbout;
@@ -80,6 +81,9 @@ public class MainActivity extends AppCompatActivity {
         swMusicAuto = findViewById(R.id.swMusicAuto);
         swVibration = findViewById(R.id.swVibration);
         swAnim = findViewById(R.id.swAnim);
+        swParticle = findViewById(R.id.swParticle);
+        chipParticleHigh = findViewById(R.id.chipParticleHigh);
+        chipParticleEco = findViewById(R.id.chipParticleEco);
         rgData = findViewById(R.id.rgData);
 
         // Tab 切换
@@ -104,6 +108,27 @@ public class MainActivity extends AppCompatActivity {
             prefs.sp().edit().putBoolean("anim_enabled", c).apply();
             BeatService svc = BeatService.instance();
             if (svc != null) svc.applyPrefs();
+        });
+
+        // 3D 粒子氛围引擎
+        swParticle.setChecked(prefs.particleEnabled());
+        swParticle.setOnCheckedChangeListener((b, c) -> {
+            prefs.setParticleEnabled(c);
+            BeatService svc = BeatService.instance();
+            if (svc != null) svc.applyPrefs();
+        });
+        refreshParticleChips();
+        chipParticleHigh.setOnClickListener(v -> {
+            prefs.setParticleQuality("high");
+            BeatService svc = BeatService.instance();
+            if (svc != null) svc.applyPrefs();
+            refreshParticleChips();
+        });
+        chipParticleEco.setOnClickListener(v -> {
+            prefs.setParticleQuality("eco");
+            BeatService svc = BeatService.instance();
+            if (svc != null) svc.applyPrefs();
+            refreshParticleChips();
         });
 
         // 晕车
@@ -216,6 +241,23 @@ public class MainActivity extends AppCompatActivity {
             });
             group.addView(dot);
         }
+    }
+
+    private void refreshParticleChips() {
+        boolean high = !"eco".equals(prefs.particleQuality());
+        chipParticleHigh.setBackground(chipBg(high));
+        chipParticleEco.setBackground(chipBg(!high));
+        chipParticleHigh.setTextColor(getColor(high ? R.color.primary : R.color.text_hint));
+        chipParticleEco.setTextColor(getColor(!high ? R.color.primary : R.color.text_hint));
+    }
+
+    private GradientDrawable chipBg(boolean selected) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(getColor(selected ? R.color.primary : android.R.color.transparent));
+        g.setCornerRadius(getResources().getDisplayMetrics().density * 10);
+        g.setStroke((int) (getResources().getDisplayMetrics().density * 1),
+                getColor(selected ? R.color.primary : R.color.text_hint));
+        return g;
     }
 
     private GradientDrawable colorDotDrawable(float hue, boolean selected) {

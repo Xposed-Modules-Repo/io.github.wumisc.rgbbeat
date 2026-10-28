@@ -5,12 +5,10 @@
     <color name="bg">#FFFFFF</color>
     <color name="card_bg">#FFFFFF</color>
     <color name="card_stroke">#F2F2F7</color>
-    <color name="divider">#F2F2F7</color>
     <color name="text_primary">#1D1D1D</color>
     <color name="text_secondary">#8E8E93</color>
     <color name="text_hint">#C7C7CC</color>
     <color name="nav_bg">#FFFFFF</color>
-    <color name="button_bg">#F2F2F7</color>
 
     <!-- 状态 -->
     <color name="status_running">#34C759</color>
@@ -19,22 +17,8 @@
     <!-- 兼容旧引用 -->
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
-    <color name="primary_dark">#0056CC</color>
     <color name="accent">#007AFF</color>
     <color name="surface_card">#FFFFFF</color>
     <color name="surface_card_alt">#F2F2F7</color>
     <color name="bg_top">#FFFFFF</color>
-    <color name="bg_bottom">#FFFFFF</color>
-    <color name="bg_glow_purple">#22007AFF</color>
-    <color name="scrim">#99000000</color>
-
-    <!-- 品牌色（兼容） -->
-    <color name="neon_red">#FF3B30</color>
-    <color name="neon_green">#34C759</color>
-    <color name="neon_blue">#007AFF</color>
-    <color name="neon_purple">#AF52DE</color>
-    <color name="neon_cyan">#5AC8FA</color>
-    <color name="neon_pink">#FF2D55</color>
-    <color name="btn_start_from">#007AFF</color>
-    <color name="btn_start_to">#5AC8FA</color>
 </resources>

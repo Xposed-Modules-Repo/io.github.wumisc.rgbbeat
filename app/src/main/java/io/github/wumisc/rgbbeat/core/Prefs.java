@@ -51,6 +51,16 @@ public final class Prefs {
     /** 数据源模式：fusion（融合·音乐+晕车，默认）/ music（音乐律动）/ motion（晕车缓解·车辆运动） */
     public String dataMode() { return sp.getString("data_mode", "fusion"); }
 
+    /** 3D 粒子氛围引擎开关（默认关，保持原有光效行为） */
+    public boolean particleEnabled() { return sp.getBoolean("particle_mode", false); }
+
+    public void setParticleEnabled(boolean on) { sp.edit().putBoolean("particle_mode", on).apply(); }
+
+    /** 粒子档位：high=高画质(3000+1000) / eco=节电(700+300) */
+    public String particleQuality() { return sp.getString("particle_quality", "high"); }
+
+    public void setParticleQuality(String q) { sp.edit().putString("particle_quality", q).apply(); }
+
     // ---- 晕车场景自动检测（v1.8 增强）----
 
     /** 晕车场景自动检测总开关 */

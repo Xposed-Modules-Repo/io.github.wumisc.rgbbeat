@@ -44,6 +44,16 @@
         <item>mic</item>
     </string-array>
 
+    <!-- 粒子画质档位 -->
+    <string-array name="particle_quality_labels">
+        <item>高画质（3000 粒子）</item>
+        <item>节电（700 粒子）</item>
+    </string-array>
+    <string-array name="particle_quality_values">
+        <item>high</item>
+        <item>eco</item>
+    </string-array>
+
     <!-- 数据源模式：融合 / 音乐律动 / 晕车缓解 -->
     <string-array name="data_mode_labels">
         <item>融合（音乐 + 晕车缓解）</item>

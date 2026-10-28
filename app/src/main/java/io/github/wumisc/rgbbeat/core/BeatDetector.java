@@ -20,6 +20,7 @@ public final class BeatDetector {
     private final BeatState state;
     private final float threshold;                 // 触发倍率（如 1.3）
     private final long cooldownMs;
+    private final float energyFloor;               // 绝对最小能量门槛：低于此不触发，过滤静音/系统 UI 声误判
 
     private final Deque<Float> window = new ArrayDeque<>(WINDOW + 1);
     private final Deque<Long> hits = new ArrayDeque<>(BPM_WINDOW + 1);
@@ -28,9 +29,14 @@ public final class BeatDetector {
     private long lastHit = -1;
 
     public BeatDetector(BeatState state, float threshold, long cooldownMs) {
+        this(state, threshold, cooldownMs, 0.015f);
+    }
+
+    public BeatDetector(BeatState state, float threshold, long cooldownMs, float energyFloor) {
         this.state = state;
         this.threshold = Math.max(1.05f, threshold);
         this.cooldownMs = Math.max(60L, cooldownMs);
+        this.energyFloor = Math.max(0f, energyFloor);
     }
 
     /** 每帧调用一次，nowMs 为单调时钟（SystemClock.elapsedRealtime） */
@@ -46,8 +52,9 @@ public final class BeatDetector {
         if (energyRaw > maxEnergy) maxEnergy = energyRaw;
         else maxEnergy = Math.max(maxEnergy * 0.9995f, 1f);
 
-        // onset 判定：冷启动保护（均值未建立时不触发）+ 阈值 + 冷却
+        // onset 判定：冷启动保护（均值未建立时不触发）+ 绝对能量门槛（过滤静音/系统 UI 声）+ 阈值 + 冷却
         boolean hit = window.size() >= WARMUP
+                && energyRaw >= energyFloor
                 && energyRaw > mean * threshold
                 && (lastHit < 0 || nowMs - lastHit >= cooldownMs);
         if (hit) {
