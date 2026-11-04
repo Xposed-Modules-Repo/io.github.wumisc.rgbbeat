@@ -191,7 +191,7 @@ public final class LightRenderer {
         // 触发后由 VideoView 全屏播放视频，上面 draw 开头已经拦截了原来的绘制
         if (prefs.highlightEnabled()) {
             long now = System.currentTimeMillis();
-            boolean isHighlight = energy > 0.1f && beat && (now - lastHighlightTrigger > HIGHLIGHT_COOLDOWN);
+            boolean isHighlight = energy > 0.1f && (now - lastHighlightTrigger > HIGHLIGHT_COOLDOWN);
             if (isHighlight) {
                 lastHighlightTrigger = now;
                 highlightRenderer.triggerHighlight();

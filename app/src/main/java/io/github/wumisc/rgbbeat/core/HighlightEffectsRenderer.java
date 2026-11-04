@@ -99,12 +99,7 @@ public final class HighlightEffectsRenderer {
         // 礼物特效震动
         vib.onMotion(1.0f, true, 200);
 
-        // 礼物音效：用通知声道，不抢音乐焦点
-        try {
-            ToneGenerator toneGen = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80);
-            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
-            toneGen.release();
-        } catch (Exception ignored) {}
+        // 礼物音效：已去掉（用户反馈音效太差）
 
         playEffect(currentEffect);
     }
