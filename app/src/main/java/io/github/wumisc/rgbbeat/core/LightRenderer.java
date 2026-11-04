@@ -11,6 +11,7 @@ import android.graphics.Typeface;
 import android.os.Process;
 import android.os.SystemClock;
 import android.view.View;
+import android.view.ViewGroup;
 
 /**
  * RGB 光效渲染器：在 LightOverlayView.onDraw 中绘制随音乐律动的屏幕边缘光效。
@@ -64,6 +65,11 @@ public final class LightRenderer {
     private int colorStage = 0;
     private float songHue = 310f;
 
+    // ---- 高潮特效：星际轨道 / 心海流光 / 鎏金凤凰 ----
+    private HighlightEffectsRenderer highlightRenderer;
+    private long lastHighlightTrigger = 0;
+    private static final long HIGHLIGHT_COOLDOWN = 5000; // 两次高潮特效间隔ms
+
     // ---- 烟花特效：真实粒子物理系统（参考 Swing 烟花模型）----
     private static final int FW_MAX = 6;          // 同时最多 6 朵
     private static final int FW_PARTICLES = 60;  // 每朵爆炸粒子数（更多更华丽）
@@ -85,9 +91,10 @@ public final class LightRenderer {
     private long lastFwBeatMs = 0;
     private int fwSlot = 0;
 
-    public LightRenderer(BeatState state, Prefs prefs) {
+    public LightRenderer(android.content.Context ctx, BeatState state, Prefs prefs) {
         this.state = state;
         this.prefs = prefs;
+        this.highlightRenderer = new HighlightEffectsRenderer(ctx, state);
         for (int i = 0; i < S3; i++) {
             s3Phase[i] = rand.nextFloat();
             s3Zph[i] = rand.nextFloat() * 6.283f;
@@ -100,6 +107,11 @@ public final class LightRenderer {
 
     public void attach(View v) {
         this.view = v;
+    }
+
+    /** 由 OverlayWindow 调用，把 VideoView 加到根 FrameLayout 里 */
+    public void attachHighlightView(ViewGroup root) {
+        highlightRenderer.attach(root);
     }
 
     public void start() {
@@ -154,6 +166,11 @@ public final class LightRenderer {
     public void draw(Canvas canvas, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
+        // ---- 高潮特效正在播放时：跳过所有原来的绘制，只显示视频 ----
+        if (highlightRenderer.shouldSkipNormalDraw()) {
+            return;
+        }
+
         float energy = state.energy;
         boolean beat = state.beat;
         float hue = state.hue;
@@ -162,14 +179,24 @@ public final class LightRenderer {
         // 用户自定义主色：固定色相（-1 时保持跟随节奏）
         float userHue = prefs.lightColorHue();
         if (userHue >= 0f) hue = userHue;
-        else if (prefs.particleEnabled()) hue = songHue; // 自动模式 + 粒子引擎：随歌曲换色
-        // 3D 粒子氛围引擎：玫瑰主角 + 星场 + 粒子雨/炸开（叠加在所有模式之上）
-        if (prefs.particleEnabled()) {
-            drawParticleAmbience(canvas, w, h, hue, energy, beat, brightness);
-        }
+        // 【已禁用】3D 粒子氛围引擎：玫瑰/爱心/星场 — 用户要求删掉，只用礼物特效
+        // if (prefs.particleEnabled()) {
+        //     drawParticleAmbience(canvas, w, h, hue, energy, beat, brightness);
+        // }
 
         // 烟花特效叠加在所有模式上：节拍命中升空爆炸（爆心炸出作者名）、空闲周期绽放
         drawFireworks(canvas, w, h, hue, brightness);
+
+        // ---- 高潮特效触发：开关开启 + 能量很高 + 节拍命中 + 冷却时间已过 ----
+        // 触发后由 VideoView 全屏播放视频，上面 draw 开头已经拦截了原来的绘制
+        if (prefs.highlightEnabled()) {
+            long now = System.currentTimeMillis();
+            boolean isHighlight = energy > 0.1f && beat && (now - lastHighlightTrigger > HIGHLIGHT_COOLDOWN);
+            if (isHighlight) {
+                lastHighlightTrigger = now;
+                highlightRenderer.triggerHighlight();
+            }
+        }
 
         // 晕车缓解模式：左右光带/粒子跟随车辆运动（加减速/转弯/颠簸），自动开启
         if ("motion".equals(state.dataMode)) {

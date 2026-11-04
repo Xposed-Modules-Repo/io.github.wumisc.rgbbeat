@@ -133,7 +133,7 @@ public class BeatService extends Service {
         }
 
         overlay = new OverlayWindow(this, state);
-        renderer = new LightRenderer(state, prefs);
+        renderer = new LightRenderer(this, state, prefs);
         vib = new VibrationEngine(this);
         refreshMediaInfo(); // 首次读取当前播放媒体信息
 

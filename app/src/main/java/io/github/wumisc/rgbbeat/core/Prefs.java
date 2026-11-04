@@ -61,6 +61,11 @@ public final class Prefs {
 
     public void setParticleQuality(String q) { sp.edit().putString("particle_quality", q).apply(); }
 
+    /** 高潮特效开关：音乐高潮时自动切换星际轨道/心海流光/鎏金凤凰 */
+    public boolean highlightEnabled() { return sp.getBoolean("highlight_enabled", true); }
+
+    public void setHighlightEnabled(boolean on) { sp.edit().putBoolean("highlight_enabled", on).apply(); }
+
     // ---- 晕车场景自动检测（v1.8 增强）----
 
     /** 晕车场景自动检测总开关 */

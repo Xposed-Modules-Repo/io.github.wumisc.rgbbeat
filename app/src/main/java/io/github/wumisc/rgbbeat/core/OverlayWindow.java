@@ -4,18 +4,23 @@ import android.content.Context;
 import android.graphics.PixelFormat;
 import android.view.Gravity;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 
 /**
- * 悬浮窗管理：创建全屏透明 View 覆盖层（LightOverlayView），供 LightRenderer 绘制
- * 屏幕边缘 / 键盘区域 RGB 光效。
+ * 悬浮窗管理：创建全屏透明 FrameLayout 覆盖层。
+ * 根布局是 FrameLayout，里面叠两层：
+ *  1. 底层：LightOverlayView — 绘制边缘光效/粒子
+ *  2. 顶层：VideoView — 高潮礼物特效，全屏覆盖
+ *
  * - FLAG_NOT_TOUCHABLE：触摸完全穿透，不拦截任何操作。
- * - FLAG_LAYOUT_IN_SCREEN + LAYOUT_NO_LIMITS：窗口覆盖到状态栏，光效可全包围整屏。
+ * - FLAG_LAYOUT_IN_SCREEN + LAYOUT_NO_LIMITS：窗口覆盖到状态栏。
  */
 public final class OverlayWindow {
 
     private final WindowManager wm;
     private final Context ctx;
     private final BeatState state;
+    private FrameLayout rootLayout;
     private LightOverlayView view;
     private KeyboardWatcher watcher;
 
@@ -29,7 +34,15 @@ public final class OverlayWindow {
     public LightOverlayView show(LightRenderer renderer) {
         if (view != null) return view;
 
+        // 根布局 FrameLayout，用来叠 VideoView
+        rootLayout = new FrameLayout(ctx);
+
+        // 底层：光效绘制 View
         view = new LightOverlayView(ctx, renderer);
+        rootLayout.addView(view);
+
+        // 把 VideoView 也加到根布局里
+        renderer.attachHighlightView(rootLayout);
 
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -43,7 +56,7 @@ public final class OverlayWindow {
         lp.gravity = Gravity.TOP | Gravity.START;
         lp.setTitle("RGBBeat");
 
-        wm.addView(view, lp);
+        wm.addView(rootLayout, lp);
 
         watcher = new KeyboardWatcher(ctx, view, state);
         watcher.attach();
@@ -53,10 +66,10 @@ public final class OverlayWindow {
     /** 只切换可见性，不销毁窗口（避免切应用瞬间重建导致的闪断）；首显自动创建 */
     public void setVisible(boolean visible) {
         if (visible) {
-            if (view == null) return; // 未创建过窗口，由 show() 创建
+            if (rootLayout == null) return;
         }
-        if (view != null) {
-            view.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
+        if (rootLayout != null) {
+            rootLayout.setVisibility(visible ? android.view.View.VISIBLE : android.view.View.GONE);
         }
     }
 
@@ -65,8 +78,9 @@ public final class OverlayWindow {
             watcher.detach();
             watcher = null;
         }
-        if (view != null) {
-            try { wm.removeView(view); } catch (Exception ignored) { }
+        if (rootLayout != null) {
+            try { wm.removeView(rootLayout); } catch (Exception ignored) { }
+            rootLayout = null;
             view = null;
         }
     }
