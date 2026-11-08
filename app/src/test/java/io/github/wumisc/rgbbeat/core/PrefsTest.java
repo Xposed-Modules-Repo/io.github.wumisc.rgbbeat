@@ -43,6 +43,9 @@ public class PrefsTest {
         assertTrue(p.animEnabled());
         assertTrue(p.autoStart());
         assertFalse(p.triggerEnabled());
+        // 新增的高潮礼物特效默认值
+        assertTrue(p.highlightEnabled());
+        assertEquals("cycle", p.highlightEffect());
     }
 
     @Test

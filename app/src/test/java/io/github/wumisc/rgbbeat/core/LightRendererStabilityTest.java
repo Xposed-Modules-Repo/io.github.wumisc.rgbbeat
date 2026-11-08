@@ -35,7 +35,7 @@ public class LightRendererStabilityTest {
         Context ctx = RuntimeEnvironment.getApplication();
         state = new BeatState();
         Prefs prefs = new Prefs(ctx);
-        renderer = new LightRenderer(state, prefs);
+        renderer = new LightRenderer(ctx, state, prefs);
         canvas = new Canvas(Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888));
     }
 
@@ -47,6 +47,8 @@ public class LightRendererStabilityTest {
         for (int i = 0; i < 300; i++) {
             state.energy = (i % 40) / 40f;
             state.beat = (i % 20 == 0);
+            // 节拍序号边沿：覆盖高潮礼物特效的触发分支（未 attach 悬浮窗时应安全跳过）
+            if (i % 20 == 0) state.beatSeq++;
             state.hue = (i * 7) % 360;
             state.marqueeT = (i % 100) / 100f;
             state.intensity = state.energy;

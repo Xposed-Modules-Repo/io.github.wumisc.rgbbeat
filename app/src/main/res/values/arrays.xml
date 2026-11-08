@@ -54,6 +54,58 @@
         <item>eco</item>
     </string-array>
 
+    <!-- 高潮礼物特效：与 EffectPicker.VALUES / HighlightEffectsRenderer.EFFECT_RES 顺序一致 -->
+    <string-array name="highlight_effect_labels">
+        <item>自动轮播（三段依次播放）</item>
+        <item>星际轨道</item>
+        <item>心海流光</item>
+        <item>鎏金凤凰</item>
+    </string-array>
+    <string-array name="highlight_effect_values">
+        <item>cycle</item>
+        <item>orbit</item>
+        <item>ocean</item>
+        <item>phoenix</item>
+    </string-array>
+
+    <!-- 抠背景模式：与 EffectKeyMode.VALUES 顺序一致 -->
+    <string-array name="highlight_key_labels">
+        <item>自动（通吃黑/白/灰/渐变底）</item>
+        <item>纯黑底素材</item>
+        <item>浅色/白底素材</item>
+        <item>不抠背景（原样显示，排查用）</item>
+    </string-array>
+    <string-array name="highlight_key_values">
+        <item>auto</item>
+        <item>dark</item>
+        <item>light</item>
+        <item>off</item>
+    </string-array>
+
+    <!-- 礼物特效统一染色：与 EffectTint.VALUES 顺序一致，默认心形粉 -->
+    <string-array name="highlight_tint_labels">
+        <item>白里粉（白芯透粉，默认）</item>
+        <item>心形粉（玫红）</item>
+        <item>玫瑰紫</item>
+        <item>极光青</item>
+        <item>深海蓝</item>
+        <item>鎏金橙</item>
+        <item>荧光绿</item>
+        <item>中国红</item>
+        <item>素材原色（不染色）</item>
+    </string-array>
+    <string-array name="highlight_tint_values">
+        <item>whitepink</item>
+        <item>heart</item>
+        <item>violet</item>
+        <item>cyan</item>
+        <item>blue</item>
+        <item>orange</item>
+        <item>green</item>
+        <item>red</item>
+        <item>none</item>
+    </string-array>
+
     <!-- 数据源模式：融合 / 音乐律动 / 晕车缓解 -->
     <string-array name="data_mode_labels">
         <item>融合（音乐 + 晕车缓解）</item>

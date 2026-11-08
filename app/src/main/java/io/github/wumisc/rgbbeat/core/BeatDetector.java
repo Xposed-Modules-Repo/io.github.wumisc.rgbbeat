@@ -59,6 +59,9 @@ public final class BeatDetector {
                 && (lastHit < 0 || nowMs - lastHit >= cooldownMs);
         if (hit) {
             lastHit = nowMs;
+            // 单调递增序号：供 LightRenderer 精确感知每一次节拍，
+            // 避免 45fps 渲染线程错过只持续一帧的 state.beat
+            state.beatSeq++;
             if (hits.size() >= BPM_WINDOW) hits.poll();
             hits.add(nowMs);
             DiagLog.d(TAG, "hit energy=" + String.format("%.3f", energyRaw)

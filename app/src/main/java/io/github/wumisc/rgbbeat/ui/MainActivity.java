@@ -34,10 +34,12 @@ public class MainActivity extends AppCompatActivity {
 
     private Prefs prefs;
     private TextView tvStatus, tvInfo, tvAboutVersion;
-    private MaterialSwitch swCarsick, swMotionTrigger, swToast, swMusicAuto, swVibration, swAnim, swParticle;
+    private MaterialSwitch swCarsick, swMotionTrigger, swToast, swMusicAuto, swVibration, swAnim, swParticle, swHighlight;
     private TextView chipParticleHigh, chipParticleEco;
+    private View btnPreviewHighlight;
     private RadioGroup rgData;
     private View pageHome, pageFx, pageAbout;
+    private View tabHome, tabFx, tabAbout;
     private View swService;
     private boolean updating = false;
     private int currentTab = 0;
@@ -62,12 +64,15 @@ public class MainActivity extends AppCompatActivity {
         pageHome = findViewById(R.id.page_home);
         pageFx = findViewById(R.id.page_fx);
         pageAbout = findViewById(R.id.page_about);
+        tabHome = findViewById(R.id.tab_home);
+        tabFx = findViewById(R.id.tab_fx);
+        tabAbout = findViewById(R.id.tab_about);
 
         // 状态
         tvStatus = findViewById(R.id.tvStatus);
         tvInfo = findViewById(R.id.tvInfo);
         tvAboutVersion = findViewById(R.id.tvAboutVersion);
-        tvAboutVersion.setText("RGBBeat v2.1");
+        tvAboutVersion.setText("RGBBeat v3.0");
 
         // 开关
         swService = findViewById(R.id.swService);
@@ -80,17 +85,14 @@ public class MainActivity extends AppCompatActivity {
         swParticle = findViewById(R.id.swParticle);
         chipParticleHigh = findViewById(R.id.chipParticleHigh);
         chipParticleEco = findViewById(R.id.chipParticleEco);
+        swHighlight = findViewById(R.id.swHighlight);
+        btnPreviewHighlight = findViewById(R.id.btnPreviewHighlight);
         rgData = findViewById(R.id.rgData);
 
-        // 液态玻璃导航栏（Compose）
-        MainNavKt.attachLiquidNav(
-                (androidx.compose.ui.platform.ComposeView) findViewById(R.id.liquid_nav_compose),
-                0,
-                index -> {
-                    switchTab(index);
-                    return kotlin.Unit.INSTANCE;
-                }
-        );
+        // Tab 切换
+        tabHome.setOnClickListener(v -> switchTab(0));
+        tabFx.setOnClickListener(v -> switchTab(1));
+        tabAbout.setOnClickListener(v -> switchTab(2));
 
         // 服务开关（圆形按钮）
         swService.setOnClickListener(v -> toggleService());
@@ -130,6 +132,22 @@ public class MainActivity extends AppCompatActivity {
             BeatService svc = BeatService.instance();
             if (svc != null) svc.applyPrefs();
             refreshParticleChips();
+        });
+
+        // 高潮礼物特效：开关 + 一键预览（不依赖节拍命中，方便确认视频能否显示）
+        swHighlight.setChecked(prefs.highlightEnabled());
+        swHighlight.setOnCheckedChangeListener((b, c) -> {
+            prefs.setHighlightEnabled(c);
+            BeatService svc = BeatService.instance();
+            if (svc != null) svc.applyPrefs();
+        });
+        btnPreviewHighlight.setOnClickListener(v -> {
+            BeatService svc = BeatService.instance();
+            if (svc == null) {
+                Toast.makeText(this, R.string.toast_preview_need_service, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            svc.previewHighlight(-1);
         });
 
         // 晕车
@@ -180,6 +198,17 @@ public class MainActivity extends AppCompatActivity {
         pageHome.setVisibility(idx == 0 ? View.VISIBLE : View.GONE);
         pageFx.setVisibility(idx == 1 ? View.VISIBLE : View.GONE);
         pageAbout.setVisibility(idx == 2 ? View.VISIBLE : View.GONE);
+        updateTabStyle(tabHome, idx == 0);
+        updateTabStyle(tabFx, idx == 1);
+        updateTabStyle(tabAbout, idx == 2);
+    }
+
+    private void updateTabStyle(View tab, boolean active) {
+        TextView tv = (TextView) ((LinearLayout) tab).getChildAt(1);
+        ImageView iv = (ImageView) ((LinearLayout) tab).getChildAt(0);
+        int color = active ? getColor(R.color.primary) : getColor(R.color.text_hint);
+        tv.setTextColor(color);
+        iv.setColorFilter(color);
     }
 
     private void toggleService() {

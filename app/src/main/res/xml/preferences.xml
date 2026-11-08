@@ -78,14 +78,14 @@
             android:key="sensitivity"
             android:title="@string/pref_sensitivity_title"
             android:summary="@string/pref_sensitivity_summary"
-            android:defaultValue="13"
+            android:defaultValue="20"
             android:min="5"
             android:max="30" />
         <SeekBarPreference
             android:key="cooldown"
             android:title="@string/pref_cooldown_title"
             android:summary="@string/pref_cooldown_summary"
-            android:defaultValue="180"
+            android:defaultValue="280"
             android:min="60"
             android:max="500" />
     </PreferenceCategory>
@@ -118,5 +118,50 @@
             android:defaultValue="high"
             android:entries="@array/particle_quality_labels"
             android:entryValues="@array/particle_quality_values" />
+    </PreferenceCategory>
+
+    <!-- 新增：高潮礼物特效（三段视频）。原实现只有 Prefs 里的 key，
+         设置页没有对应控件，用户既看不到也改不了开关/特效。 -->
+    <PreferenceCategory android:title="@string/pref_section_highlight">
+        <SwitchPreference
+            android:key="highlight_enabled"
+            android:title="@string/pref_highlight_enabled_title"
+            android:summary="@string/pref_highlight_enabled_summary"
+            android:defaultValue="true" />
+        <ListPreference
+            android:key="highlight_effect"
+            android:title="@string/pref_highlight_effect_title"
+            android:summary="@string/pref_highlight_effect_summary"
+            android:defaultValue="cycle"
+            android:entries="@array/highlight_effect_labels"
+            android:entryValues="@array/highlight_effect_values" />
+        <ListPreference
+            android:key="highlight_key_mode"
+            android:title="@string/pref_highlight_key_title"
+            android:summary="@string/pref_highlight_key_summary"
+            android:defaultValue="auto"
+            android:entries="@array/highlight_key_labels"
+            android:entryValues="@array/highlight_key_values" />
+        <Preference
+            android:key="highlight_key_hint"
+            android:title="@string/pref_highlight_key_hint_title"
+            android:summary="@string/pref_highlight_key_hint"
+            android:selectable="false" />
+        <ListPreference
+            android:key="highlight_tint"
+            android:title="@string/pref_highlight_tint_title"
+            android:summary="@string/pref_highlight_tint_summary"
+            android:defaultValue="whitepink"
+            android:entries="@array/highlight_tint_labels"
+            android:entryValues="@array/highlight_tint_values" />
+        <Preference
+            android:key="highlight_tint_hint"
+            android:title="@string/pref_highlight_tint_hint_title"
+            android:summary="@string/pref_highlight_tint_hint"
+            android:selectable="false" />
+        <Preference
+            android:key="preview_highlight"
+            android:title="@string/pref_highlight_preview_title"
+            android:summary="@string/pref_highlight_preview_summary" />
     </PreferenceCategory>
 </PreferenceScreen>

@@ -9,8 +9,8 @@ import android.widget.FrameLayout;
 /**
  * 悬浮窗管理：创建全屏透明 FrameLayout 覆盖层。
  * 根布局是 FrameLayout，里面叠两层：
- *  1. 底层：LightOverlayView — 绘制边缘光效/粒子
- *  2. 顶层：VideoView — 高潮礼物特效，全屏覆盖
+ *  1. 底层：EffectGlSurfaceView — 高潮礼物特效（GL 色键抠黑 + 原始比例居中，透明叠加）
+ *  2. 顶层：LightOverlayView — 绘制边缘光效/粒子（透明 Canvas，可与礼物特效叠加）
  *
  * - FLAG_NOT_TOUCHABLE：触摸完全穿透，不拦截任何操作。
  * - FLAG_LAYOUT_IN_SCREEN + LAYOUT_NO_LIMITS：窗口覆盖到状态栏。
@@ -23,6 +23,7 @@ public final class OverlayWindow {
     private FrameLayout rootLayout;
     private LightOverlayView view;
     private KeyboardWatcher watcher;
+    private LightRenderer renderer;
 
     public OverlayWindow(Context context, BeatState state) {
         this.ctx = context;
@@ -33,15 +34,16 @@ public final class OverlayWindow {
     /** 显示覆盖层并绑定渲染器，返回覆盖 View */
     public LightOverlayView show(LightRenderer renderer) {
         if (view != null) return view;
+        this.renderer = renderer;
 
-        // 根布局 FrameLayout，用来叠 VideoView
+        // 根布局 FrameLayout，用来叠视频层
         rootLayout = new FrameLayout(ctx);
 
-        // 底层：光效绘制 View
+        // 顶层：光效绘制 View（透明 Canvas）
         view = new LightOverlayView(ctx, renderer);
         rootLayout.addView(view);
 
-        // 把 VideoView 也加到根布局里
+        // 底层：TextureView 礼物特效层，attach 内部 addView(index=0)
         renderer.attachHighlightView(rootLayout);
 
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
@@ -77,6 +79,11 @@ public final class OverlayWindow {
         if (watcher != null) {
             watcher.detach();
             watcher = null;
+        }
+        // 释放礼物视频的 MediaPlayer / Surface，避免服务停止后资源泄漏
+        if (renderer != null) {
+            try { renderer.releaseHighlight(); } catch (Throwable ignored) { }
+            renderer = null;
         }
         if (rootLayout != null) {
             try { wm.removeView(rootLayout); } catch (Exception ignored) { }

@@ -8,8 +8,11 @@ public final class BeatState {
 
     /** 归一化能量 0~1（越大越强） */
     public volatile float energy = 0f;
-    /** 当前帧是否命中节拍 */
+    /** 当前帧是否命中节拍（瞬时标志，可能在一帧内被下一次 feed 覆盖） */
     public volatile boolean beat = false;
+    /** 节拍命中序号：每次命中 +1。渲染线程 45fps 与音频回调不同步，
+     *  只靠 beat 布尔值会漏掉命中，需要靠这个单调序号做边沿检测。 */
+    public volatile long beatSeq = 0L;
     /** 色相相位 0~360，随时间与音乐漂移 */
     public volatile float hue = 0f;
     /** 跑马灯沿边缘流动进度 0~1（顺时针一圈） */

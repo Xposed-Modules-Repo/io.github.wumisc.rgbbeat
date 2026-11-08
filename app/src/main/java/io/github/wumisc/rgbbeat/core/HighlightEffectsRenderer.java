@@ -1,27 +1,34 @@
 package io.github.wumisc.rgbbeat.core;
 
 import android.content.Context;
-import android.graphics.Matrix;
-import android.graphics.Paint;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.SurfaceTexture;
-import android.media.AudioManager;
+import android.content.res.AssetFileDescriptor;
 import android.media.MediaPlayer;
-import android.media.ToneGenerator;
-import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Surface;
-import android.view.TextureView;
-import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+
+import java.io.IOException;
+
 import io.github.wumisc.rgbbeat.R;
 
 /**
- * 高潮礼物特效：全屏视频 + 黑底透明 + 震动 + 音效。
+ * 高潮礼物特效：星际轨道 / 心海流光 / 鎏金凤凰（res/raw 下三段 mp4）。
  *
- * 用 TextureView 代替 VideoView，这样可以做颜色键控：
- * 把视频里的黑色像素变成透明，只保留亮的特效图案，
- * 像抖音礼物那样飘在原来的画面上面，不是盖住整个屏幕。
+ * 渲染链路：MediaPlayer → EffectGlSurfaceView 的 OES 外部纹理 → GL 色键抠黑 →
+ * 按素材原始宽高比等比居中绘制到透明 Surface。
+ *
+ * 修复要点：
+ *  · 原实现把横屏 mp4 铺到 MATCH_PARENT 的 TextureView，被拉伸/裁切 → 只能看到局部；
+ *    现在按视频原始比例 FIT_CENTER 居中，完整呈现、不裁切、不变形。
+ *  · 原实现没有 alpha，靠 setAlpha(0.82) 硬盖一层黑底 → 整屏灰蒙蒙、挡住界面；
+ *    现在用 GL 片元着色器把暗部变成全透明，只叠加亮部流光。
+ *  · 原实现 TextureView 初始 GONE，拿不到 SurfaceTexture，播放请求永远挂起；
+ *    现在 GL View 始终 VISIBLE，Surface 由 onGlReady 回调驱动，未就绪时挂起再补播。
+ *  · stop() 不再重置 currentEffect，否则每次都从第 0 段开始，另外两段永远轮不到。
+ *  · 用 AssetFileDescriptor 打开 raw 资源，避免部分 ROM 上 android.resource:// URI 解析失败；
+ *    监听 onError 并复位状态，Surface / MediaPlayer 成对释放，避免解码失败后卡死或泄漏。
  */
 public final class HighlightEffectsRenderer {
 
@@ -32,162 +39,196 @@ public final class HighlightEffectsRenderer {
     public static final int EFFECT_PHOENIX = 2;
     public static final int EFFECT_COUNT = 3;
 
-    private final Context ctx;
-    private final BeatState state;
-    private final VibrationEngine vib;
-    private TextureView textureView;
-    private MediaPlayer mediaPlayer;
-    private int currentEffect = -1;
-    private boolean isPlaying = false;
+    private static final int[] EFFECT_RES = {
+            R.raw.highlight_orbit,
+            R.raw.highlight_ocean,
+            R.raw.highlight_phoenix
+    };
 
-    public HighlightEffectsRenderer(Context ctx, BeatState state) {
+    private final Context ctx;
+    private final Prefs prefs;
+    private final VibrationEngine vib;
+    private final Handler main = new Handler(Looper.getMainLooper());
+
+    private EffectGlSurfaceView glView;
+    private MediaPlayer player;
+    private int currentEffect = -1;
+    private boolean playing;        // 准备中或播放中：防止重入
+    private boolean startedPlaying; // 真的拿到首帧开始播了（区别于「卡在 prepare」）
+    private boolean pendingPlay;    // GL Surface 尚未就绪，等 onGlReady
+    private int pendingResId;
+    private boolean attached;
+
+    /** prepare 超时看门狗：解码器卡住时强制复位，否则 playing 永久为 true，特效再也不触发 */
+    private static final long PREPARE_TIMEOUT_MS = 6000;
+    private final Runnable prepareWatchdog = () -> {
+        if (playing && !startedPlaying) {
+            DiagLog.w(TAG, "prepare timeout " + PREPARE_TIMEOUT_MS + "ms, reset state");
+            stop();
+        }
+    };
+
+    public HighlightEffectsRenderer(Context ctx, Prefs prefs) {
         this.ctx = ctx;
-        this.state = state;
+        this.prefs = prefs;
         this.vib = new VibrationEngine(ctx);
     }
 
     /**
-     * 绑定到根布局，TextureView 会加到这个容器里
+     * 绑定到悬浮窗根布局。GL Surface 用 setZOrderOnTop(true)，与 View 树层级无关，
+     * 始终浮在窗口内所有内容之上，透明区域完全透出下层画面。
+     * 必须在主线程调用。
      */
     public void attach(ViewGroup rootView) {
-        textureView = new TextureView(ctx);
-        textureView.setLayoutParams(new ViewGroup.LayoutParams(
+        if (attached || rootView == null) return;
+
+        glView = new EffectGlSurfaceView(ctx);
+        glView.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        textureView.setVisibility(View.GONE);
-
-        // 设置 SurfaceTexture 可用监听
-        textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-            @Override
-            public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-                // Surface 准备好了，如果有待播放的视频就播
-                if (pendingPlay) {
-                    playPendingVideo();
-                }
-            }
-
-            @Override
-            public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {}
-
-            @Override
-            public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-                releasePlayer();
-                return true;
-            }
-
-            @Override
-            public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
-        });
-
-        rootView.addView(textureView);
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        glView.setReadyCallback(surface -> main.post(() -> {
+            if (pendingPlay) startPlayback(surface);
+        }));
+        rootView.addView(glView, 0);
+        attached = true;
     }
 
-    private boolean pendingPlay = false;
-    private int pendingResId = 0;
-
-    /**
-     * 触发高潮特效：切换到下一个视频并播放
-     */
+    /** 触发一次高潮特效：按设置自动轮播或播放用户指定的那一段 */
     public void triggerHighlight() {
-        if (isPlaying) {
-            currentEffect = (currentEffect + 1) % EFFECT_COUNT;
-        } else {
-            currentEffect = (currentEffect + 1) % EFFECT_COUNT;
-        }
+        playEffect(EffectPicker.resolve(prefs.highlightEffect(), currentEffect));
+    }
 
-        // 礼物特效震动
-        vib.onMotion(1.0f, true, 200);
-
-        // 礼物音效：已去掉（用户反馈音效太差）
-
-        playEffect(currentEffect);
+    /** 手动预览。effectIndex < 0 表示按设置自动选择下一段，0..2 表示指定特效 */
+    public void preview(int effectIndex) {
+        if (effectIndex < 0) triggerHighlight();
+        else playEffect(effectIndex);
     }
 
     private void playEffect(int effectIndex) {
-        int resId;
-        switch (effectIndex) {
-            case EFFECT_ORBIT:
-                resId = R.raw.highlight_orbit;
-                break;
-            case EFFECT_OCEAN:
-                resId = R.raw.highlight_ocean;
-                break;
-            case EFFECT_PHOENIX:
-                resId = R.raw.highlight_phoenix;
-                break;
-            default:
-                return;
+        if (!attached || glView == null || effectIndex < 0 || effectIndex >= EFFECT_COUNT) {
+            DiagLog.w(TAG, "skip play: attached=" + attached + " index=" + effectIndex
+                    + " (悬浮窗未创建时无法预览)");
+            return;
+        }
+        currentEffect = effectIndex;   // 注意：stop() 不重置它，保证三段都能轮到
+        pendingResId = EFFECT_RES[effectIndex];
+        refreshVisual();               // 每次播放都按最新的抠背景模式与染色，无需重启服务
+
+        // 礼物震动遵循用户的总开关与强度，不再硬编码
+        if (prefs.vibrationEnabled()) {
+            vib.onBeat(1f, 1f, true, prefs.vibrationIntensity());
         }
 
-        pendingResId = resId;
-
-        // 如果 Surface 已经准备好了，直接播
-        if (textureView.isAvailable()) {
-            playPendingVideo();
-        } else {
+        Surface surface = glView.isGlReady() ? glView.getVideoSurface() : null;
+        if (surface == null) {
             pendingPlay = true;
+            DiagLog.d(TAG, "waiting GL surface for effect " + effectIndex);
+            return;
         }
+        startPlayback(surface);
     }
 
-    private void playPendingVideo() {
+    private void startPlayback(Surface surface) {
+        if (!attached || glView == null || surface == null) return;
         try {
             releasePlayer();
 
-            mediaPlayer = new MediaPlayer();
-            Uri uri = Uri.parse("android.resource://" + ctx.getPackageName() + "/" + pendingResId);
-            mediaPlayer.setDataSource(ctx, uri);
+            MediaPlayer mp = new MediaPlayer();
+            mp.setSurface(surface);
+            AssetFileDescriptor afd = ctx.getResources().openRawResourceFd(pendingResId);
+            if (afd == null) throw new IOException("openRawResourceFd failed: " + pendingResId);
+            try {
+                // 用 fd + offset + length，比 android.resource:// URI 兼容性更好
+                mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            } finally {
+                afd.close();
+            }
 
-            SurfaceTexture st = textureView.getSurfaceTexture();
-            Surface surface = new Surface(st);
-            mediaPlayer.setSurface(surface);
+            mp.setLooping(false);
+            mp.setVolume(0f, 0f);   // 静音，不影响正在播放的音乐
+            try {
+                // 帧完整写进 SurfaceTexture，缩放/居中全部由 GL 顶点控制
+                mp.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT);
+            } catch (Throwable ignored) { }
 
-            mediaPlayer.setLooping(false);
-            mediaPlayer.setVolume(0, 0); // 静音，不影响音乐
-
-            mediaPlayer.setOnPreparedListener(mp -> {
-                mp.start();
-                isPlaying = true;
-                textureView.setVisibility(View.VISIBLE);
-                DiagLog.d(TAG, "播放礼物特效");
+            mp.setOnVideoSizeChangedListener((p, w, h) -> {
+                if (glView != null) glView.setVideoSize(w, h);
             });
-
-            mediaPlayer.setOnCompletionListener(mp -> {
+            mp.setOnPreparedListener(p -> {
+                if (glView != null) {
+                    glView.setVideoSize(p.getVideoWidth(), p.getVideoHeight());
+                    glView.setShowing(true);
+                }
+                p.start();
+                playing = true;
+                startedPlaying = true;
+                main.removeCallbacks(prepareWatchdog);
+                DiagLog.d(TAG, "playing effect " + currentEffect);
+            });
+            mp.setOnCompletionListener(p -> {
+                DiagLog.d(TAG, "effect finished " + currentEffect);
                 stop();
             });
+            mp.setOnErrorListener((p, what, extra) -> {
+                // 常见于设备不支持该编码 / 素材损坏，必须复位而不是卡住
+                DiagLog.w(TAG, "MediaPlayer error what=" + what + " extra=" + extra
+                        + " (素材编码或解码器不兼容)");
+                stop();
+                return true;
+            });
 
-            mediaPlayer.prepareAsync();
+            player = mp;
+            playing = true;         // 准备阶段即占用，冷却期内不重复触发
+            startedPlaying = false;
             pendingPlay = false;
+            mp.prepareAsync();
+            main.removeCallbacks(prepareWatchdog);
+            main.postDelayed(prepareWatchdog, PREPARE_TIMEOUT_MS);
         } catch (Throwable t) {
-            DiagLog.w(TAG, "播放特效失败: " + t);
+            DiagLog.w(TAG, "play effect failed: " + t);
             stop();
         }
     }
 
-    private void releasePlayer() {
-        if (mediaPlayer != null) {
-            try {
-                mediaPlayer.stop();
-                mediaPlayer.release();
-            } catch (Throwable ignored) {}
-            mediaPlayer = null;
+    /** 设置页改了「背景抠除模式 / 特效颜色」后立即重绘，正在播放的画面也会跟着变 */
+    public void refreshVisual() {
+        if (glView != null) {
+            glView.setKeyMode(EffectKeyMode.toShaderMode(prefs.highlightKeyMode()));
+            glView.setTint(EffectTint.resolve(prefs.highlightTint()));
         }
     }
 
+    /** 停止播放并复位：清屏为全透明，不再遮挡任何界面。currentEffect 保留用于轮播 */
     public void stop() {
+        main.removeCallbacks(prepareWatchdog);
         releasePlayer();
-        if (textureView != null) {
-            textureView.setVisibility(View.GONE);
+        pendingPlay = false;
+        playing = false;
+        startedPlaying = false;
+        if (glView != null) glView.setShowing(false);
+    }
+
+    /** 悬浮窗销毁 / 服务停止时彻底释放 */
+    public void release() {
+        stop();
+        try { vib.release(); } catch (Throwable ignored) { }
+        if (glView != null) {
+            try { glView.release(); } catch (Throwable ignored) { }
+            glView = null;
         }
-        isPlaying = false;
-        currentEffect = -1;
+        attached = false;
     }
 
-    public boolean isPlaying() {
-        return isPlaying;
+    private void releasePlayer() {
+        if (player != null) {
+            try { player.stop(); } catch (Throwable ignored) { }
+            try { player.release(); } catch (Throwable ignored) { }
+            player = null;
+        }
     }
 
-    public boolean shouldSkipNormalDraw() {
-        return isPlaying;
-    }
+    /** 准备中或播放中 */
+    public boolean isPlaying() { return playing; }
+
+    public int currentEffect() { return currentEffect; }
 }

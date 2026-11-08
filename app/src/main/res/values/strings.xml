@@ -82,6 +82,26 @@
     <string name="pref_vibration_intensity_title">震动强度</string>
     <string name="pref_vibration_intensity_summary">0~255，越大震感越强</string>
 
+    <!-- 高潮礼物特效（新增） -->
+    <string name="pref_section_highlight">高潮礼物特效</string>
+    <string name="pref_highlight_enabled_title">音乐高潮自动播放</string>
+    <string name="pref_highlight_enabled_summary">节拍命中且冷却已过时自动播放礼物视频特效，与边缘光效叠加</string>
+    <string name="pref_highlight_effect_title">礼物特效</string>
+    <string name="pref_highlight_effect_summary" formatted="false">%s</string>
+    <string name="pref_highlight_key_title">背景抠除模式</string>
+    <string name="pref_highlight_key_summary" formatted="false">%s</string>
+    <string name="pref_highlight_key_hint_title">抠背景说明</string>
+    <string name="pref_highlight_key_hint">默认「自动」按局部对比度与彩度抠掉平滑底色，换素材后若仍有雾状残留可切到对应模式</string>
+    <string name="pref_highlight_tint_title">礼物特效颜色</string>
+    <string name="pref_highlight_tint_summary" formatted="false">%s</string>
+    <string name="pref_highlight_tint_hint_title">统一染色说明</string>
+    <string name="pref_highlight_tint_hint">三段素材统一染成所选颜色，保留亮度层次与白芯；选「素材原色」可回到视频本来的颜色</string>
+    <string name="pref_highlight_preview_title">立即预览特效</string>
+    <string name="pref_highlight_preview_summary">手动播放一次，用于确认视频素材能正常显示</string>
+    <string name="sw_highlight">音乐高潮自动播放礼物特效</string>
+    <string name="btn_preview_highlight">立即预览礼物特效</string>
+    <string name="toast_preview_need_service">请先启动光效服务再预览</string>
+
     <string name="toast_started">RGB 光效服务已启动</string>
     <string name="toast_stopped">RGB 光效服务已停止</string>
     <string name="toast_permission_denied">请先授予悬浮窗权限</string>

@@ -87,6 +87,25 @@ public class BeatService extends Service {
 
     public static BeatService instance() { return sInstance; }
 
+    /**
+     * 手动预览礼物特效（首页 / 设置页按钮调用）。
+     * index < 0 表示按设置自动选择下一段，0..2 表示指定特效。
+     * 悬浮窗操作必须在主线程；预览时确保窗口已创建并可见，否则 GL Surface 还没就绪。
+     */
+    public void previewHighlight(int index) {
+        if (renderer == null || overlay == null) return;
+        mainHandler.post(() -> {
+            try {
+                LightOverlayView ov = overlay.show(renderer); // 幂等：已创建则直接返回
+                renderer.attach(ov);
+                overlay.setVisible(true);
+                renderer.previewHighlight(index);
+            } catch (Throwable t) {
+                DiagLog.w(TAG, "preview highlight err: " + t);
+            }
+        });
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -489,6 +508,8 @@ public class BeatService extends Service {
     /** 设置变更后实时同步（SettingsActivity 调用） */
     public void applyPrefs() {
         if (prefs == null || state == null) return;
+        // 抠背景模式改了要立刻重绘，否则正在播放的特效还用旧算法
+        if (renderer != null) renderer.refreshHighlightVisual();
         state.mode = prefs.mode();
         // 数据源模式变化：音乐 ↔ 晕车切换数据源与显示
         String wantMode = prefs.dataMode();

@@ -65,10 +65,13 @@ public final class LightRenderer {
     private int colorStage = 0;
     private float songHue = 310f;
 
-    // ---- 高潮特效：星际轨道 / 心海流光 / 鎏金凤凰 ----
-    private HighlightEffectsRenderer highlightRenderer;
-    private long lastHighlightTrigger = 0;
-    private static final long HIGHLIGHT_COOLDOWN = 5000; // 两次高潮特效间隔ms
+    // ---- 高潮礼物特效：星际轨道 / 心海流光 / 鎏金凤凰 ----
+    private final HighlightEffectsRenderer highlightRenderer;
+    // 初值取「冷却前」，否则开机后 elapsedRealtime < 冷却时长时第一拍永远不触发
+    private long lastHighlightTrigger = -HIGHLIGHT_COOLDOWN;
+    private long lastHighlightBeatSeq = 0;
+    // 视频通常 5~10s，冷却太短会在视频结束后立刻连播、刷屏打断正常使用
+    private static final long HIGHLIGHT_COOLDOWN = 12000; // 两次高潮特效间隔ms
 
     // ---- 烟花特效：真实粒子物理系统（参考 Swing 烟花模型）----
     private static final int FW_MAX = 6;          // 同时最多 6 朵
@@ -94,7 +97,7 @@ public final class LightRenderer {
     public LightRenderer(android.content.Context ctx, BeatState state, Prefs prefs) {
         this.state = state;
         this.prefs = prefs;
-        this.highlightRenderer = new HighlightEffectsRenderer(ctx, state);
+        this.highlightRenderer = new HighlightEffectsRenderer(ctx, prefs);
         for (int i = 0; i < S3; i++) {
             s3Phase[i] = rand.nextFloat();
             s3Zph[i] = rand.nextFloat() * 6.283f;
@@ -109,9 +112,25 @@ public final class LightRenderer {
         this.view = v;
     }
 
-    /** 由 OverlayWindow 调用，把 VideoView 加到根 FrameLayout 里 */
+    /** 由 OverlayWindow 调用，把 GL 礼物特效层加到根 FrameLayout 底层 */
     public void attachHighlightView(ViewGroup root) {
         highlightRenderer.attach(root);
+        highlightRenderer.refreshVisual();
+    }
+
+    /** 设置页改了「背景抠除模式 / 特效颜色」后实时同步到 GL 层 */
+    public void refreshHighlightVisual() {
+        highlightRenderer.refreshVisual();
+    }
+
+    /** 手动预览礼物特效（主线程调用）。index < 0 表示按设置自动选下一段 */
+    public void previewHighlight(int index) {
+        highlightRenderer.preview(index);
+    }
+
+    /** 悬浮窗销毁时释放 MediaPlayer / Surface / Vibrator */
+    public void releaseHighlight() {
+        highlightRenderer.release();
     }
 
     public void start() {
@@ -124,6 +143,7 @@ public final class LightRenderer {
 
     public void stop() {
         running = false;
+        highlightRenderer.stop(); // 停掉正在播放的礼物视频，避免服务停了视频还在响/占用 Surface
         if (thread != null) {
             thread.interrupt();
             try { thread.join(300); } catch (InterruptedException ignored) { }
@@ -166,10 +186,8 @@ public final class LightRenderer {
     public void draw(Canvas canvas, int w, int h) {
         if (w <= 0 || h <= 0) return;
 
-        // ---- 高潮特效正在播放时：跳过所有原来的绘制，只显示视频 ----
-        if (highlightRenderer.shouldSkipNormalDraw()) {
-            return;
-        }
+        // 礼物视频层在 LightOverlayView 下层，普通光效照常绘制并叠加显示。
+        // 原实现在这里直接 return，一旦 isPlaying 因异常卡为 true，整个光效会永久消失。
 
         float energy = state.energy;
         boolean beat = state.beat;
@@ -179,22 +197,29 @@ public final class LightRenderer {
         // 用户自定义主色：固定色相（-1 时保持跟随节奏）
         float userHue = prefs.lightColorHue();
         if (userHue >= 0f) hue = userHue;
-        // 【已禁用】3D 粒子氛围引擎：玫瑰/爱心/星场 — 用户要求删掉，只用礼物特效
-        // if (prefs.particleEnabled()) {
-        //     drawParticleAmbience(canvas, w, h, hue, energy, beat, brightness);
-        // }
+        else if (prefs.particleEnabled()) hue = songHue; // 自动模式 + 粒子引擎：随歌曲换色
+        // 3D 粒子氛围引擎（默认关）。之前被整段注释掉，但设置页/首页仍有开关，
+        // 导致「开关点了没反应」；恢复后与礼物特效相互独立，可分别开关。
+        if (prefs.particleEnabled()) {
+            drawParticleAmbience(canvas, w, h, hue, energy, beat, brightness);
+        }
 
         // 烟花特效叠加在所有模式上：节拍命中升空爆炸（爆心炸出作者名）、空闲周期绽放
         drawFireworks(canvas, w, h, hue, brightness);
 
-        // ---- 高潮特效触发：开关开启 + 能量很高 + 节拍命中 + 冷却时间已过 ----
-        // 触发后由 VideoView 全屏播放视频，上面 draw 开头已经拦截了原来的绘制
+        // ---- 高潮礼物特效触发：开关开启 + 节拍序号变化 + 未在播放 + 冷却已过 ----
+        // 不能用 state.beat：它是只持续一帧的瞬时标志，45fps 渲染线程很容易漏掉，
+        // 且晕车(motion)模式没有音频、beat 恒为 false，特效会永远不触发。
+        // beatSeq 单调递增，任何一帧都能检测到「发生过命中」。
         if (prefs.highlightEnabled()) {
-            long now = System.currentTimeMillis();
-            boolean isHighlight = energy > 0.1f && (now - lastHighlightTrigger > HIGHLIGHT_COOLDOWN);
-            if (isHighlight) {
-                lastHighlightTrigger = now;
-                highlightRenderer.triggerHighlight();
+            long seq = state.beatSeq;
+            if (seq != lastHighlightBeatSeq) {
+                lastHighlightBeatSeq = seq;
+                long now = SystemClock.elapsedRealtime(); // 单调时钟，不受用户改系统时间影响
+                if (!highlightRenderer.isPlaying() && now - lastHighlightTrigger > HIGHLIGHT_COOLDOWN) {
+                    lastHighlightTrigger = now;
+                    highlightRenderer.triggerHighlight();
+                }
             }
         }
 
