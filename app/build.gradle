@@ -10,8 +10,8 @@ android {
         applicationId "io.github.wumisc.rgbbeat"
         minSdk 26          // Android 8.0+：Type.APPLICATION_OVERLAY 与前台服务需要
         targetSdk 34
-        versionCode 13
-        versionName "2.2"
+        versionCode 15
+        versionName "2.2.2"
     }
 
     buildTypes {

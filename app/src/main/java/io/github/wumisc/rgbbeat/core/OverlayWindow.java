@@ -8,11 +8,13 @@ import android.widget.FrameLayout;
 
 /**
  * 悬浮窗管理：创建全屏透明 FrameLayout 覆盖层。
- * 根布局是 FrameLayout，里面叠两层：
- *  1. 底层：EffectGlSurfaceView — 高潮礼物特效（GL 色键抠黑 + 原始比例居中，透明叠加）
+ * 根布局是 FrameLayout，里面叠两层（按 z 序，后加的在上）：
+ *  1. 底层：EffectVideoView — 高潮礼物特效（TextureView + EGL 色键，无独立图层）
  *  2. 顶层：LightOverlayView — 绘制边缘光效/粒子（透明 Canvas，可与礼物特效叠加）
  *
- * - FLAG_NOT_TOUCHABLE：触摸完全穿透，不拦截任何操作。
+ * - FLAG_NOT_TOUCHABLE / NOT_TOUCH_MODAL：触摸完全穿透，不拦截任何操作。
+ *   （注：GL 层绝不能用 setZOrderOnTop(true)，那会把 Surface 提到窗口之外的顶层，
+ *    部分 ROM 上会导致整机触摸失效。）
  * - FLAG_LAYOUT_IN_SCREEN + LAYOUT_NO_LIMITS：窗口覆盖到状态栏。
  */
 public final class OverlayWindow {
@@ -43,7 +45,7 @@ public final class OverlayWindow {
         view = new LightOverlayView(ctx, renderer);
         rootLayout.addView(view);
 
-        // 底层：TextureView 礼物特效层，attach 内部 addView(index=0)
+        // 底层：礼物特效层（TextureView，随窗口合成，不产生独立图层），attach 内部 addView(index=0)
         renderer.attachHighlightView(rootLayout);
 
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
@@ -52,6 +54,7 @@ public final class OverlayWindow {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE   // 触摸穿透，不挡操作
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL // 双保险：不独占触摸
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN // 覆盖到状态栏
                         | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, // 铺满含导航栏
                 PixelFormat.TRANSLUCENT);

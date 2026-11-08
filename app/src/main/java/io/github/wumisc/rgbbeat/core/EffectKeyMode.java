@@ -13,7 +13,7 @@ public final class EffectKeyMode {
     public static final String LIGHT = "light";
     public static final String OFF = "off";
 
-    /** 与 EffectGlSurfaceView 片元着色器 uMode 一一对应 */
+    /** 与 EffectVideoView 片元着色器 uMode 一一对应 */
     public static final int MODE_AUTO = 0;
     public static final int MODE_DARK = 1;
     public static final int MODE_LIGHT = 2;

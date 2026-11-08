@@ -16,7 +16,7 @@ import io.github.wumisc.rgbbeat.R;
 /**
  * 高潮礼物特效：星际轨道 / 心海流光 / 鎏金凤凰（res/raw 下三段 mp4）。
  *
- * 渲染链路：MediaPlayer → EffectGlSurfaceView 的 OES 外部纹理 → GL 色键抠黑 →
+ * 渲染链路：MediaPlayer → EffectVideoView 的 OES 外部纹理 → GL 色键抠背景 →
  * 按素材原始宽高比等比居中绘制到透明 Surface。
  *
  * 修复要点：
@@ -50,7 +50,7 @@ public final class HighlightEffectsRenderer {
     private final VibrationEngine vib;
     private final Handler main = new Handler(Looper.getMainLooper());
 
-    private EffectGlSurfaceView glView;
+    private EffectVideoView glView;
     private MediaPlayer player;
     private int currentEffect = -1;
     private boolean playing;        // 准备中或播放中：防止重入
@@ -68,6 +68,17 @@ public final class HighlightEffectsRenderer {
         }
     };
 
+    /**
+     * 兜底硬停：即使 onCompletion 没回调（部分 ROM 对 raw 资源有异常），也要把特效层清掉。
+     * 叠加层一旦留在最上层就是事故，宁可早停也不能滞留。
+     */
+    private final Runnable hardStop = () -> {
+        if (playing) {
+            DiagLog.w(TAG, "hard stop after duration, clear effect layer");
+            stop();
+        }
+    };
+
     public HighlightEffectsRenderer(Context ctx, Prefs prefs) {
         this.ctx = ctx;
         this.prefs = prefs;
@@ -75,14 +86,14 @@ public final class HighlightEffectsRenderer {
     }
 
     /**
-     * 绑定到悬浮窗根布局。GL Surface 用 setZOrderOnTop(true)，与 View 树层级无关，
-     * 始终浮在窗口内所有内容之上，透明区域完全透出下层画面。
+     * 绑定到悬浮窗根布局。GL 层按默认 z 序放进窗口（addView index=0，位于光效层之下），
+     * 窗口本身是 FLAG_NOT_TOUCHABLE，所以触摸照常穿透到下层应用。
      * 必须在主线程调用。
      */
     public void attach(ViewGroup rootView) {
         if (attached || rootView == null) return;
 
-        glView = new EffectGlSurfaceView(ctx);
+        glView = new EffectVideoView(ctx);
         glView.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
@@ -163,7 +174,12 @@ public final class HighlightEffectsRenderer {
                 playing = true;
                 startedPlaying = true;
                 main.removeCallbacks(prepareWatchdog);
-                DiagLog.d(TAG, "playing effect " + currentEffect);
+                // 兜底：到点强制清层，避免叠加层滞留
+                int dur = 0;
+                try { dur = p.getDuration(); } catch (Throwable ignored) { }
+                main.removeCallbacks(hardStop);
+                main.postDelayed(hardStop, Math.max(4000, dur + 1500));
+                DiagLog.d(TAG, "playing effect " + currentEffect + " dur=" + dur);
             });
             mp.setOnCompletionListener(p -> {
                 DiagLog.d(TAG, "effect finished " + currentEffect);
@@ -201,6 +217,7 @@ public final class HighlightEffectsRenderer {
     /** 停止播放并复位：清屏为全透明，不再遮挡任何界面。currentEffect 保留用于轮播 */
     public void stop() {
         main.removeCallbacks(prepareWatchdog);
+        main.removeCallbacks(hardStop);
         releasePlayer();
         pendingPlay = false;
         playing = false;
