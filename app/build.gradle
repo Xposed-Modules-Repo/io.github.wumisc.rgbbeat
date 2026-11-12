@@ -1,33 +1,68 @@
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+
+// 可选签名：把 keystore.properties 放到仓库根目录即可自动签名（不入库）
+def keystorePropsFile = rootProject.file('keystore.properties')
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
 }
 
 android {
     namespace 'io.github.wumisc.rgbbeat'
-    compileSdk 35
+    compileSdk 37
+    buildToolsVersion '36.0.0'
 
     defaultConfig {
         applicationId "io.github.wumisc.rgbbeat"
-        minSdk 26          // Android 8.0+：Type.APPLICATION_OVERLAY 与前台服务需要
-        targetSdk 34
-        versionCode 15
-        versionName "2.2.2"
+        minSdk 26
+        targetSdk 36
+        versionCode 20
+        versionName "3.0.0"
+        vectorDrawables { useSupportLibrary true }
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropsFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            minifyEnabled false
+        }
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-        debug {
-            minifyEnabled false
+            if (keystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    lint {
+        abortOnError false
     }
 
     testOptions {
@@ -35,10 +70,11 @@ android {
             includeAndroidResources = true
         }
     }
+}
 
-    // LSPosed 模块在 debug 下也建议禁用压缩，避免类名被混淆导致 Xposed 入口失效
-    lint {
-        abortOnError false
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
     }
 }
 
@@ -47,11 +83,20 @@ dependencies {
     compileOnly 'de.robv.android.xposed:api:82'
     compileOnly 'de.robv.android.xposed:api:82:sources'
 
-    implementation 'androidx.appcompat:appcompat:1.7.0'
-    implementation 'com.google.android.material:material:1.12.0'
-    implementation 'androidx.preference:preference:1.2.1'
+    implementation 'androidx.core:core-ktx:1.16.0'
+    implementation 'androidx.activity:activity-compose:1.10.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.9.4'
 
-    // 单元测试（JVM + Robolectric）：稳定性回归
+    implementation 'androidx.compose.ui:ui:1.12.1'
+    implementation 'androidx.compose.ui:ui-graphics:1.12.1'
+    implementation 'androidx.compose.foundation:foundation:1.12.1'
+    implementation 'androidx.compose.animation:animation:1.12.1'
+    implementation 'androidx.compose.material3:material3:1.4.0'
+    implementation 'androidx.compose.ui:ui-tooling-preview:1.12.1'
+    debugImplementation 'androidx.compose.ui:ui-tooling:1.12.1'
+
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.13'
     testImplementation 'androidx.test:core:1.6.1'

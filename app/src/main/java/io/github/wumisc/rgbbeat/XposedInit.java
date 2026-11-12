@@ -25,6 +25,10 @@ public class XposedInit implements IXposedHookLoadPackage {
 
     private static final String TAG = "RGBBeatXposed";
 
+    // 目标服务：必须是全限定类名（SystemUI 进程里没有本模块的 ClassLoader，不能用 X.class.getName()）
+    private static final String TARGET_PKG = "io.github.wumisc.rgbbeat";
+    private static final String SERVICE_CLASS = "io.github.wumisc.rgbbeat.service.BeatService";
+
     // SystemUI 主 Application 候选类名（含 HyperOS 可能的变体）
     private static final String[] SYSTEMUI_APP_CLASSES = {
             "com.android.systemui.SystemUIApplication",
@@ -100,8 +104,7 @@ public class XposedInit implements IXposedHookLoadPackage {
         }
         lastLaunch = now;
         try {
-            Intent i = new Intent().setClassName(
-                    "io.github.wumisc.rgbbeat", "io.github.wumisc.rgbbeat.core.BeatService");
+            Intent i = new Intent().setClassName(TARGET_PKG, SERVICE_CLASS);
             ctx.startForegroundService(i);
             Log.i(TAG, "从 SystemUI 拉起 BeatService 成功");
         } catch (Throwable t) {
@@ -109,8 +112,7 @@ public class XposedInit implements IXposedHookLoadPackage {
             Log.w(TAG, "SystemUI 拉起失败，5s 后重试: " + t);
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 try {
-                    Intent i = new Intent().setClassName(
-                            "io.github.wumisc.rgbbeat", "io.github.wumisc.rgbbeat.core.BeatService");
+                    Intent i = new Intent().setClassName(TARGET_PKG, SERVICE_CLASS);
                     ctx.startForegroundService(i);
                     Log.i(TAG, "重试拉起 BeatService 成功");
                 } catch (Throwable t2) {

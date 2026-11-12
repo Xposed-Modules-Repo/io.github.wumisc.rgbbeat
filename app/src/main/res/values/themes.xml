@@ -1,34 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.RGBBeat" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorPrimaryContainer">@color/card_bg</item>
-        <item name="colorOnPrimaryContainer">@color/text_primary</item>
-        <item name="colorSecondary">@color/accent</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <item name="colorSurface">@color/card_bg</item>
-        <item name="colorOnSurface">@color/text_primary</item>
-        <item name="colorSurfaceVariant">@color/surface_card_alt</item>
-        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
-        <item name="colorOutline">@color/card_stroke</item>
-        <item name="android:windowBackground">@color/bg_top</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@color/bg_top</item>
-        <item name="android:windowLightStatusBar">@bool/light_statusbar</item>
-        <item name="android:textColor">@color/text_primary</item>
-        <item name="android:textColorPrimary">@color/text_primary</item>
-        <item name="android:textColorSecondary">@color/text_secondary</item>
-    </style>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 小窗主题：半透明遮罩 + 居中圆角卡片，用于"选择触发应用/推荐Hook"等二级界面 -->
-    <style name="Theme.RGBBeat.Dialog" parent="Theme.Material3.DayNight.Dialog">
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowCloseOnTouchOutside">true</item>
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="android:textColor">@color/text_primary</item>
-        <item name="android:textColorPrimary">@color/text_primary</item>
-        <item name="android:textColorSecondary">@color/text_secondary</item>
+    <!--
+        唯一主题：无 ActionBar + 透明系统栏（内容全屏绘制，由 Compose 处理 insets）。
+        关键一条：android:forceDarkAllowed=false —— 窗口层统一关闭系统"强制深色"，
+        避免 HyperOS/ColorOS 在浅色主题下二次压暗自定义配色，把夜店风调成脏灰。
+    -->
+    <style name="Theme.RGBBeat" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/scene_base</item>
+        <item name="android:colorBackground">@color/scene_base</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLightStatusBar">@bool/light_statusbar</item>
+        <item name="android:windowLightNavigationBar">@bool/light_statusbar</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="p">shortEdges</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>

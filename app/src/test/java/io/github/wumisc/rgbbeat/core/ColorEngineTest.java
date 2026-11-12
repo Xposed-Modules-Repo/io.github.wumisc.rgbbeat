@@ -1,5 +1,10 @@
 package io.github.wumisc.rgbbeat.core;
 
+import io.github.wumisc.rgbbeat.data.*;
+import io.github.wumisc.rgbbeat.engine.*;
+import io.github.wumisc.rgbbeat.render.*;
+import io.github.wumisc.rgbbeat.service.*;
+
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;

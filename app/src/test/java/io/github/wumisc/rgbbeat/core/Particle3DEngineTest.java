@@ -1,5 +1,10 @@
 package io.github.wumisc.rgbbeat.core;
 
+import io.github.wumisc.rgbbeat.data.*;
+import io.github.wumisc.rgbbeat.engine.*;
+import io.github.wumisc.rgbbeat.render.*;
+import io.github.wumisc.rgbbeat.service.*;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -172,10 +177,10 @@ public class Particle3DEngineTest {
 
     @Test
     public void starNoteDiamondCloudsAreFiniteAndBounded() {
-        assertShape(io.github.wumisc.rgbbeat.core.Particle3DEngine.starCloud(500, 1f), "star");
-        assertShape(io.github.wumisc.rgbbeat.core.Particle3DEngine.noteCloud(500, 1f), "note");
-        assertShape(io.github.wumisc.rgbbeat.core.Particle3DEngine.diamondCloud(500, 1f), "diamond");
-        assertShape(io.github.wumisc.rgbbeat.core.Particle3DEngine.roseCloud(500, 1f), "rose");
+        assertShape(Particle3DEngine.starCloud(500, 1f), "star");
+        assertShape(Particle3DEngine.noteCloud(500, 1f), "note");
+        assertShape(Particle3DEngine.diamondCloud(500, 1f), "diamond");
+        assertShape(Particle3DEngine.roseCloud(500, 1f), "rose");
     }
 
     private static void assertShape(float[][] c, String name) {
