@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import io.github.wumisc.rgbbeat.data.CrashGuard
 import io.github.wumisc.rgbbeat.data.DiagLog
 import io.github.wumisc.rgbbeat.data.Prefs
 import io.github.wumisc.rgbbeat.service.BeatService
@@ -75,6 +76,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DiagLog.init(this)
+        CrashGuard.install(this)
         Prefs.migrateLegacy(this)
         settings = UiSettings(this)
 

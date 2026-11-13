@@ -10,6 +10,10 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.graphics.Typeface;
@@ -40,6 +44,16 @@ public final class LightRenderer {
     private final Prefs prefs;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final java.util.Random rand = new java.util.Random();
+
+    // ---- 柔光点精灵：预渲染一次，绘制时缩放贴图 ----
+    // 旧实现每个粒子每帧都 new RadialGradient（一帧上百个），GC 抖动严重、长时间播放会
+    // 触发掉帧甚至被系统判定为卡死；改为"一张精灵图 + 色相量化缓存"后，稳态零分配。
+    private static final int GLOW_SIZE = 96;
+    private static Bitmap glowSprite;
+    private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final Rect glowSrc = new Rect(0, 0, GLOW_SIZE, GLOW_SIZE);
+    private final RectF glowDst = new RectF();
+    private final java.util.HashMap<Integer, PorterDuffColorFilter> glowFilters = new java.util.HashMap<>();
 
     // ---- 左右两侧 3D 流光：竖边流动 + z 深度行波 + 透视近大远小 ----
     private static final int S3 = 48;                    // 每侧 3D 流光粒子数
@@ -554,27 +568,57 @@ public final class LightRenderer {
         }
     }
 
-    /** 柔光圆点：中心亮、多层渐隐（更柔和优雅） */
+    /** 柔光圆点：预渲染精灵 + 径向渐变贴图，稳定帧率下零分配 */
     private void drawGlowDot(Canvas c, float cx, float cy, float radius,
                              float hue, float energy, float b, float alpha) {
-        if (radius < 1f) return;
-        // 外层光晕（更大、更淡）
-        paint.setShader(new RadialGradient(cx, cy, radius * 1.8f,
-                transparent(hue, 0),
-                edgeColor(hue, 0, energy, b, alpha * 0.35f),
-                Shader.TileMode.CLAMP));
-        c.drawCircle(cx, cy, radius * 1.8f, paint);
-        // 中层光晕
-        paint.setShader(new RadialGradient(cx, cy, radius * 1.3f,
-                edgeColor(hue, 0, energy, b, alpha * 0.6f),
-                transparent(hue, 0), Shader.TileMode.CLAMP));
-        c.drawCircle(cx, cy, radius * 1.3f, paint);
+        if (radius < 1f || alpha <= 0.01f) return;
+        Bitmap sprite = glowSprite();
+        PorterDuffColorFilter filter = glowFilter(hue);
+        glowPaint.setColorFilter(filter);
+
+        float alpha255 = clamp01f(alpha) * 255f * (b / 255f);
+        // 外层柔晕：更大、更淡
+        glowDst.set(cx - radius * 1.9f, cy - radius * 1.9f, cx + radius * 1.9f, cy + radius * 1.9f);
+        glowPaint.setAlpha((int) (alpha255 * 0.42f));
+        c.drawBitmap(sprite, glowSrc, glowDst, glowPaint);
         // 核心亮点
-        paint.setShader(new RadialGradient(cx, cy, radius,
-                edgeColor(hue, 0, energy, b, alpha),
-                transparent(hue, 0), Shader.TileMode.CLAMP));
-        c.drawCircle(cx, cy, radius, paint);
-        paint.setShader(null);
+        glowDst.set(cx - radius, cy - radius, cx + radius, cy + radius);
+        glowPaint.setAlpha((int) alpha255);
+        c.drawBitmap(sprite, glowSrc, glowDst, glowPaint);
+        glowPaint.setColorFilter(null);
+    }
+
+    /** 色相量化到 6° 一档，缓存 PorterDuff 滤镜（最多 60 个），避免每点 new 对象 */
+    private PorterDuffColorFilter glowFilter(float hue) {
+        float wrapped = hue % 360f;
+        if (wrapped < 0f) wrapped += 360f;
+        int key = ((int) (wrapped / 6f)) % 60;
+        PorterDuffColorFilter f = glowFilters.get(key);
+        if (f == null) {
+            int rgb = ColorEngine.solidColor(key * 6f) & 0xFFFFFF;
+            f = new PorterDuffColorFilter(0xFF000000 | rgb, PorterDuff.Mode.SRC_IN);
+            glowFilters.put(key, f);
+        }
+        return f;
+    }
+
+    private static synchronized Bitmap glowSprite() {
+        if (glowSprite == null) {
+            int s = GLOW_SIZE;
+            Bitmap bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+            Canvas cb = new Canvas(bmp);
+            Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+            p.setShader(new RadialGradient(s / 2f, s / 2f, s / 2f,
+                    new int[]{0xFFFFFFFF, 0xE6FFFFFF, 0x66FFFFFF, 0x00FFFFFF},
+                    new float[]{0f, 0.32f, 0.68f, 1f}, Shader.TileMode.CLAMP));
+            cb.drawCircle(s / 2f, s / 2f, s / 2f, p);
+            glowSprite = bmp;
+        }
+        return glowSprite;
+    }
+
+    private static float clamp01f(float v) {
+        return v < 0f ? 0f : Math.min(v, 1f);
     }
 
     /** 发射一朵烟花：光柱从屏幕底部升空到爆炸高度，随后粒子径向爆开 */

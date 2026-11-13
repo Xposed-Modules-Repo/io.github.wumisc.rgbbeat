@@ -66,10 +66,30 @@ public final class OverlayWindow {
         lp.gravity = Gravity.TOP | Gravity.START;
         lp.setTitle("RGBBeat");
 
-        wm.addView(rootLayout, lp);
+        // 权限可能在中途被系统/用户回收，直接 addView 会抛 BadTokenException 把进程带走
+        if (!CrashGuard.canOverlay(ctx)) {
+            DiagLog.w("RGBBeat/Overlay", "overlay permission lost, skip attach");
+            rootLayout = null;
+            view = null;
+            return null;
+        }
+        try {
+            wm.addView(rootLayout, lp);
+        } catch (Throwable t) {
+            DiagLog.w("RGBBeat/Overlay", "addView failed: " + t);
+            try { wm.removeView(rootLayout); } catch (Throwable ignored) { }
+            rootLayout = null;
+            view = null;
+            return null;
+        }
 
-        watcher = new KeyboardWatcher(ctx, view, state);
-        watcher.attach();
+        try {
+            watcher = new KeyboardWatcher(ctx, view, state);
+            watcher.attach();
+        } catch (Throwable t) {
+            DiagLog.w("RGBBeat/Overlay", "ime watcher attach failed: " + t);
+            watcher = null;
+        }
         return view;
     }
 

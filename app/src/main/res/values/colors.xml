@@ -2,4 +2,5 @@
 <resources>
     <!-- 窗口底色：与 Compose 场景底色一致，避免启动白闪（深色皮肤为主） -->
     <color name="scene_base">#020006</color>
+    <color name="icon_bg">#020006</color>
 </resources>

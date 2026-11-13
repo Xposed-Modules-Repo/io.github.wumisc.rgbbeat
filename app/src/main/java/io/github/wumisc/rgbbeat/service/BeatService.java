@@ -71,6 +71,12 @@ public class BeatService extends Service {
     private final Runnable turnOnRun = () -> {
         try {
             LightOverlayView ov = overlay.show(renderer);
+            if (ov == null) {
+                // 悬浮窗没建起来（权限被回收 / ROM 拒绝），保持关闭状态，等下次重试
+                overlayWanted = false;
+                DiagLog.w(TAG, "overlay show returned null, will retry later");
+                return;
+            }
             renderer.attach(ov);
             overlay.setVisible(true);
             renderer.start();
@@ -87,6 +93,30 @@ public class BeatService extends Service {
             if (overlay != null) overlay.setVisible(false); // 窗口保留，仅隐藏，避免重建闪断
         } catch (Throwable t) {
             DiagLog.w(TAG, "ensureOverlayOff err: " + t);
+        }
+    };
+
+    // ---- 渲染看门狗：悬浮窗应显示但渲染线程已死时自愈（GL 线程被驱动层打断的常见表现）----
+    private int renderHealCount = 0;
+    private final Runnable watchdogRun = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                if (started && overlayWanted && renderer != null && !renderer.isRunning()) {
+                    if (renderHealCount < 5) {
+                        renderHealCount++;
+                        DiagLog.w(TAG, "watchdog: render dead, restart #" + renderHealCount);
+                        renderer.start();
+                        if (overlay != null) overlay.setVisible(true);
+                    }
+                } else if (renderer != null && renderer.isRunning()) {
+                    renderHealCount = 0;
+                }
+            } catch (Throwable t) {
+                DiagLog.w(TAG, "watchdog err: " + t);
+            } finally {
+                if (started) mainHandler.postDelayed(this, 30_000L);
+            }
         }
     };
 
@@ -130,6 +160,8 @@ public class BeatService extends Service {
     public void onCreate() {
         super.onCreate();
         sInstance = this;
+        // 崩溃兜底必须最先安装：写栈 + 连续崩溃进入安全模式 + 进程死亡后闹钟拉起
+        try { io.github.wumisc.rgbbeat.data.CrashGuard.install(this); } catch (Throwable ignored) { }
     }
 
     @Override
@@ -175,6 +207,8 @@ public class BeatService extends Service {
         renderer = new LightRenderer(this, state, prefs);
         vib = new VibrationEngine(this);
         refreshMediaInfo(); // 首次读取当前播放媒体信息
+        mainHandler.removeCallbacks(watchdogRun);
+        mainHandler.postDelayed(watchdogRun, 30_000L);
 
         if (isFusion()) {
             // 融合模式：音乐律动 + 晕车缓解并行，听音乐也能叠加晕车光效
@@ -598,6 +632,7 @@ public class BeatService extends Service {
     @Override
     public void onDestroy() {
         sInstance = null;
+        mainHandler.removeCallbacks(watchdogRun);
         if (wakeLock != null) {
             try { if (wakeLock.isHeld()) wakeLock.release(); } catch (Throwable ignored) { }
             wakeLock = null;
